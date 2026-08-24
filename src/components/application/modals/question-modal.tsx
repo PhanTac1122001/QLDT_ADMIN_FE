@@ -6,14 +6,16 @@ import { CheckCircle2, X } from "lucide-react";
 import { Heading } from "react-aria-components";
 import { ChoiceOptionsForm } from "@/components/application/modals/question-forms/choice-options-form";
 import { FillBlankForm, parseMarkerIndexesRaw } from "@/components/application/modals/question-forms/fill-blank-form";
+import { MatchingPairsForm } from "@/components/application/modals/question-forms/matching-pairs-form";
+import { ReorderBlocksForm } from "@/components/application/modals/question-forms/reorder-blocks-form";
 import { TiptapEditor } from "@/components/base/editor";
 import { Select } from "@/components/base/select/select";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
-import { MIN_FILL_BLANKS } from "@/constants/quiz.constants";
+import { MIN_FILL_BLANKS, MIN_MATCHING_PAIRS, MIN_REORDER_BLOCKS } from "@/constants/quiz.constants";
 import { UI_TEXT } from "@/constants/ui-text.constants";
 import { toast } from "@/services/toast.service";
 import type { SelectItemType } from "@/types/base-components.types";
-import type { BlankMock, OptionMock, QuestionKind, QuestionMock, QuestionModalProps } from "@/types/exam-set.types";
+import type { BlankMock, MatchingPairMock, OptionMock, QuestionKind, QuestionMock, QuestionModalProps, ReorderBlockMock } from "@/types/exam-set.types";
 
 const defaultOptions = (): OptionMock[] => [
     { id: "o1", label: "A", text: "", isCorrect: true },
@@ -21,6 +23,12 @@ const defaultOptions = (): OptionMock[] => [
     { id: "o3", label: "C", text: "", isCorrect: false },
     { id: "o4", label: "D", text: "", isCorrect: false },
 ];
+
+// Mặc định 2 dòng rỗng khi tạo mới câu MATCHING/REORDER — tối thiểu là 2 nên đừng bắt
+// staff phải bấm "Thêm" ngay khi vừa mở modal.
+const defaultPairs = (): MatchingPairMock[] => Array.from({ length: MIN_MATCHING_PAIRS }, (_, i) => ({ id: `pair_new_${i + 1}`, left: "", right: "" }));
+
+const defaultBlocks = (): ReorderBlockMock[] => Array.from({ length: MIN_REORDER_BLOCKS }, (_, i) => ({ id: `block_new_${i + 1}`, content: "" }));
 
 // 5 loại tạo mới được từ modal này. "TEXT" (câu tự luận) CỐ Ý không nằm trong danh
 // sách này: câu tự luận soạn mới thật sự dùng EssayQuestionMock + essay-question-modal.tsx
@@ -41,12 +49,16 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
     const [options, setOptions] = useState<OptionMock[]>(defaultOptions());
     const [type, setType] = useState<QuestionKind>("SINGLE_CHOICE");
     const [blanks, setBlanks] = useState<BlankMock[]>([]);
+    const [pairs, setPairs] = useState<MatchingPairMock[]>(defaultPairs());
+    const [blocks, setBlocks] = useState<ReorderBlockMock[]>(defaultBlocks());
 
     // Trắc nghiệm nhiều đáp án đúng giờ suy ra thẳng từ type, không còn là state riêng.
     const isMulti = type === "MULTIPLE_CHOICE";
     const isChoiceType = type === "SINGLE_CHOICE" || type === "MULTIPLE_CHOICE";
     const isTextQuestion = type === "TEXT";
     const isFillBlank = type === "FILL_BLANK";
+    const isMatching = type === "MATCHING";
+    const isReorder = type === "REORDER";
     // Chỉ thêm mục "TEXT" vào danh sách khi đang sửa một câu TEXT sẵn có, để ô chọn
     // hiện đúng loại của nó; mục này bị khoá (isDisabled) và Select cũng bị khoá toàn bộ.
     const questionTypeItems: SelectItemType[] = isTextQuestion
@@ -60,6 +72,8 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 setExplanation(question.explanation);
                 setType(question.type);
                 setBlanks(question.blanks || []);
+                setPairs(question.pairs || []);
+                setBlocks(question.blocks || []);
 
                 // Ensure exactly 4 options
                 const loadedOpts = [...question.options];
@@ -79,6 +93,8 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 setOptions(defaultOptions());
                 setType("SINGLE_CHOICE");
                 setBlanks([]);
+                setPairs(defaultPairs());
+                setBlocks(defaultBlocks());
             }
         }
     }, [isOpen, question]);
@@ -177,6 +193,37 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
             }
         }
 
+        // MATCHING: lọc bỏ dòng rỗng cả hai vế trước khi đếm (staff có thể để lại dòng
+        // trống thừa) — nhưng dòng chỉ điền một vế là lỗi thật sự, không được âm thầm bỏ.
+        const nonEmptyPairs = pairs.filter((p) => p.left.trim() || p.right.trim());
+        if (isMatching) {
+            if (nonEmptyPairs.length < MIN_MATCHING_PAIRS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMatchingMinPairs);
+                return;
+            }
+
+            const hasIncompletePair = nonEmptyPairs.some((p) => !p.left.trim() || !p.right.trim());
+            if (hasIncompletePair) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMatchingPairIncomplete);
+                return;
+            }
+        }
+
+        // REORDER: không có khái niệm "điền một nửa" như MATCHING (mỗi block chỉ có một
+        // ô nội dung) nên không lọc dòng rỗng — mọi dòng đang có phải được điền đủ.
+        if (isReorder) {
+            if (blocks.length < MIN_REORDER_BLOCKS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorReorderMinBlocks);
+                return;
+            }
+
+            const hasEmptyBlock = blocks.some((b) => !b.content.trim());
+            if (hasEmptyBlock) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorReorderBlockEmpty);
+                return;
+            }
+        }
+
         const questionText = plainText.length > 120 ? plainText.slice(0, 120) + "..." : plainText;
 
         const newQuestion: QuestionMock = {
@@ -189,11 +236,13 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 text: opt.text.trim(),
             })),
             type,
-            // Chỉ gửi blanks khi đúng là câu điền từ — đổi loại sang trắc nghiệm/khác
-            // rồi lưu không được mang theo blanks cũ.
+            // Chỉ gửi blanks/pairs/blocks đúng khi type khớp — đổi loại rồi lưu không được
+            // mang theo dữ liệu của loại cũ.
             blanks: isFillBlank
                 ? blanks.map((b) => ({ ...b, acceptedAnswers: b.acceptedAnswers.map((a) => a.trim()).filter((a) => a.length > 0) }))
                 : undefined,
+            pairs: isMatching ? nonEmptyPairs.map((p) => ({ ...p, left: p.left.trim(), right: p.right.trim() })) : undefined,
+            blocks: isReorder ? blocks.map((b) => ({ ...b, content: b.content.trim() })) : undefined,
         };
 
         onSave(newQuestion);
@@ -272,8 +321,8 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                                 </div>
                             )}
 
-                            {/* Answers List Section: chỉ SINGLE_CHOICE/MULTIPLE_CHOICE có form ở task này.
-                                MATCHING/REORDER chưa có form con — sẽ thêm ở các task sau. */}
+                            {/* Answers List Section: mỗi dạng câu hỏi có form con riêng, chỉ một
+                                trong số này được render tại một thời điểm theo `type`. */}
                             {isChoiceType && (
                                 <ChoiceOptionsForm
                                     options={options}
@@ -282,6 +331,10 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                                     onOptionTextChange={handleOptionTextChange}
                                 />
                             )}
+
+                            {isMatching && <MatchingPairsForm pairs={pairs} onPairsChange={setPairs} />}
+
+                            {isReorder && <ReorderBlocksForm blocks={blocks} onBlocksChange={setBlocks} />}
                         </div>
 
                         {/* Footer Controls & Actions */}

@@ -114,3 +114,20 @@ export interface FillBlankFormProps {
     blanks: BlankMock[];
     onBlanksChange: (blanks: BlankMock[]) => void;
 }
+
+// Props của form soạn câu nối cặp (MATCHING). `pairs` do modal cha sở hữu/điều khiển
+// (controlled), giống pattern của FillBlankFormProps: modal cha giữ state để
+// handleSubmit có thể validate (đủ số cặp tối thiểu, không cặp nào thiếu vế) trước
+// khi gửi lên.
+export interface MatchingPairsFormProps {
+    pairs: MatchingPairMock[];
+    onPairsChange: (pairs: MatchingPairMock[]) => void;
+}
+
+// Props của form soạn câu sắp xếp block (REORDER). Thứ tự PHẦN TỬ TRONG MẢNG `blocks`
+// chính là thứ tự đáp án đúng — component chỉ đổi vị trí phần tử (nút lên/xuống),
+// không có state thứ tự riêng.
+export interface ReorderBlocksFormProps {
+    blocks: ReorderBlockMock[];
+    onBlocksChange: (blocks: ReorderBlockMock[]) => void;
+}
