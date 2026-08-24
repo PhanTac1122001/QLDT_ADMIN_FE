@@ -2,14 +2,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, CheckCircle2, Circle, X } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import { Heading } from "react-aria-components";
+import { ChoiceOptionsForm } from "@/components/application/modals/question-forms/choice-options-form";
 import { TiptapEditor } from "@/components/base/editor";
+import { Select } from "@/components/base/select/select";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
 import { UI_TEXT } from "@/constants/ui-text.constants";
 import { toast } from "@/services/toast.service";
-import type { OptionMock, QuestionMock, QuestionModalProps } from "@/types/exam-set.types";
-import { cx } from "@/utils/cx";
+import type { SelectItemType } from "@/types/base-components.types";
+import type { OptionMock, QuestionKind, QuestionMock, QuestionModalProps } from "@/types/exam-set.types";
 
 const defaultOptions = (): OptionMock[] => [
     { id: "o1", label: "A", text: "", isCorrect: true },
@@ -18,17 +20,41 @@ const defaultOptions = (): OptionMock[] => [
     { id: "o4", label: "D", text: "", isCorrect: false },
 ];
 
+// 5 loại tạo mới được từ modal này. "TEXT" (câu tự luận) CỐ Ý không nằm trong danh
+// sách này: câu tự luận soạn mới thật sự dùng EssayQuestionMock + essay-question-modal.tsx
+// riêng. Nếu đang sửa một câu TEXT sẵn có (dữ liệu cũ / import Excel), ô chọn vẫn phải
+// hiện đúng "Tự luận" (xem questionTypeItems bên dưới) nhưng bị khoá lại — không cho đổi
+// sang loại khác và không cho tạo mới TEXT ở đây.
+const creatableQuestionTypeItems: SelectItemType[] = [
+    { id: "SINGLE_CHOICE", label: UI_TEXT.examsSetsEl.questionTypeSingle },
+    { id: "MULTIPLE_CHOICE", label: UI_TEXT.examsSetsEl.questionTypeMultiple },
+    { id: "FILL_BLANK", label: UI_TEXT.examsSetsEl.questionTypeFillBlank },
+    { id: "MATCHING", label: UI_TEXT.examsSetsEl.questionTypeMatching },
+    { id: "REORDER", label: UI_TEXT.examsSetsEl.questionTypeReorder },
+];
+
 export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionModalProps) {
     const [points, setPoints] = useState(10);
     const [explanation, setExplanation] = useState("");
     const [options, setOptions] = useState<OptionMock[]>(defaultOptions());
-    const [isMulti, setIsMulti] = useState(false);
+    const [type, setType] = useState<QuestionKind>("SINGLE_CHOICE");
+
+    // Trắc nghiệm nhiều đáp án đúng giờ suy ra thẳng từ type, không còn là state riêng.
+    const isMulti = type === "MULTIPLE_CHOICE";
+    const isChoiceType = type === "SINGLE_CHOICE" || type === "MULTIPLE_CHOICE";
+    const isTextQuestion = type === "TEXT";
+    // Chỉ thêm mục "TEXT" vào danh sách khi đang sửa một câu TEXT sẵn có, để ô chọn
+    // hiện đúng loại của nó; mục này bị khoá (isDisabled) và Select cũng bị khoá toàn bộ.
+    const questionTypeItems: SelectItemType[] = isTextQuestion
+        ? [...creatableQuestionTypeItems, { id: "TEXT", label: UI_TEXT.examsSetsEl.questionTypeText, isDisabled: true }]
+        : creatableQuestionTypeItems;
 
     useEffect(() => {
         if (isOpen) {
             if (question) {
                 setPoints(question.points);
                 setExplanation(question.explanation);
+                setType(question.type);
 
                 // Ensure exactly 4 options
                 const loadedOpts = [...question.options];
@@ -42,15 +68,11 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                     });
                 }
                 setOptions(loadedOpts);
-
-                // Detect if it is multiple correct answers
-                const correctCount = loadedOpts.filter((o) => o.isCorrect).length;
-                setIsMulti(correctCount > 1);
             } else {
                 setPoints(10);
                 setExplanation("");
                 setOptions(defaultOptions());
-                setIsMulti(false);
+                setType("SINGLE_CHOICE");
             }
         }
     }, [isOpen, question]);
@@ -74,9 +96,8 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
         setOptions((prev) => prev.map((opt, i) => (i === index ? { ...opt, text: val } : opt)));
     };
 
-    const handleToggleMulti = (multi: boolean) => {
-        setIsMulti(multi);
-        if (!multi) {
+    const handleTypeChange = (nextType: QuestionKind) => {
+        if (nextType === "SINGLE_CHOICE" && type === "MULTIPLE_CHOICE") {
             // Reverting to single choice mode: keep only the first correct option, others set to false
             setOptions((prev) => {
                 let foundCorrect = false;
@@ -92,6 +113,7 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 });
             });
         }
+        setType(nextType);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -103,10 +125,18 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
             return;
         }
 
-        const correctCount = options.filter((o) => o.isCorrect).length;
-        if (correctCount === 0) {
-            toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.labelAnswersList);
-            return;
+        if (isChoiceType) {
+            const correctOptions = options.filter((o) => o.isCorrect);
+            if (correctOptions.length === 0) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.labelAnswersList);
+                return;
+            }
+
+            const hasEmptyCorrectOption = correctOptions.some((o) => !o.text.trim());
+            if (hasEmptyCorrectOption) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.placeholderAnswer);
+                return;
+            }
         }
 
         const questionText = plainText.length > 120 ? plainText.slice(0, 120) + "..." : plainText;
@@ -120,6 +150,7 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 ...opt,
                 text: opt.text.trim(),
             })),
+            type,
         };
 
         onSave(newQuestion);
@@ -156,17 +187,34 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                     {/* Form Body */}
                     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
                         <div className="custom-scrollbar flex flex-1 flex-col gap-5 overflow-y-auto p-6">
-                            {/* Points Input Row */}
-                            <div className="flex max-w-[200px] flex-col gap-1.5">
-                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelPoints}</label>
-                                <input
-                                    type="number"
-                                    value={points}
-                                    onChange={(e) => setPoints(Number(e.target.value))}
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13.5px] font-medium text-slate-800 focus:border-wine focus:ring-1 focus:ring-wine focus:outline-none"
-                                    required
-                                    min={1}
-                                />
+                            {/* Question Type + Points Row */}
+                            <div className="flex flex-wrap gap-4">
+                                <div className="flex max-w-[280px] flex-1 flex-col gap-1.5">
+                                    <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelQuestionType}</label>
+                                    <Select
+                                        aria-label={UI_TEXT.examsSetsEl.labelQuestionType}
+                                        selectedKey={type}
+                                        onSelectionChange={(key) => key && handleTypeChange(key as QuestionKind)}
+                                        items={questionTypeItems}
+                                        size="md"
+                                        isClearable={false}
+                                        isDisabled={isTextQuestion}
+                                    >
+                                        {(item) => <Select.Item id={item.id} label={item.label} isDisabled={item.isDisabled} />}
+                                    </Select>
+                                </div>
+
+                                <div className="flex max-w-[200px] flex-col gap-1.5">
+                                    <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelPoints}</label>
+                                    <input
+                                        type="number"
+                                        value={points}
+                                        onChange={(e) => setPoints(Number(e.target.value))}
+                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13.5px] font-medium text-slate-800 focus:border-wine focus:ring-1 focus:ring-wine focus:outline-none"
+                                        required
+                                        min={1}
+                                    />
+                                </div>
                             </div>
 
                             {/* Rich Editor Description */}
@@ -175,90 +223,21 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                                 <TiptapEditor value={explanation} onChange={setExplanation} placeholder={UI_TEXT.examsSetsEl.placeholderQuestionDesc} />
                             </div>
 
-                            {/* Answers List Section */}
-                            <div className="flex flex-col gap-2.5">
-                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelAnswersList}</label>
-
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    {options.map((opt, index) => (
-                                        <div
-                                            key={opt.id}
-                                            className={cx(
-                                                "relative flex cursor-pointer flex-col gap-3.5 rounded-2xl border p-4.5 transition duration-150 focus-within:ring-1",
-                                                opt.isCorrect
-                                                    ? "border-emerald-500 bg-emerald-50/20 shadow-xs shadow-emerald-50 focus-within:border-emerald-500 focus-within:ring-emerald-500"
-                                                    : "border-slate-200 bg-white focus-within:border-wine focus-within:ring-wine hover:border-slate-800",
-                                            )}
-                                            onClick={() => handleSelectCorrect(index)}
-                                        >
-                                            {/* Choice Card Header */}
-                                            <div className="pointer-events-none flex items-center justify-between select-none">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="relative flex items-center justify-center">
-                                                        {opt.isCorrect ? (
-                                                            <div
-                                                                className={cx(
-                                                                    "flex size-5 items-center justify-center bg-emerald-500 text-white",
-                                                                    isMulti ? "rounded-md" : "rounded-full",
-                                                                )}
-                                                            >
-                                                                <Check className="size-3.5 stroke-[3] text-white" />
-                                                            </div>
-                                                        ) : isMulti ? (
-                                                            <div className="size-5 rounded-md border-2 border-slate-300 bg-white" />
-                                                        ) : (
-                                                            <Circle className="size-5 text-slate-400" />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <span className={cx("text-xs font-bold", opt.isCorrect ? "text-emerald-700" : "text-slate-400")}>
-                                                    {opt.isCorrect ? UI_TEXT.examsSetsEl.labelCorrect : UI_TEXT.examsSetsEl.labelIncorrect}
-                                                </span>
-                                            </div>
-
-                                            {/* Choice Card Input */}
-                                            <textarea
-                                                rows={2}
-                                                value={opt.text}
-                                                onChange={(e) => handleOptionTextChange(index, e.target.value)}
-                                                onClick={(e) => e.stopPropagation()} // Avoid triggering correct-selection click when typing
-                                                placeholder={UI_TEXT.examsSetsEl.placeholderAnswer}
-                                                className="w-full resize-none border-none bg-transparent p-0 text-[13px] leading-relaxed font-semibold text-slate-700 placeholder-slate-400 focus:outline-none"
-                                                required
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                            {/* Answers List Section: chỉ SINGLE_CHOICE/MULTIPLE_CHOICE có form ở task này.
+                                FILL_BLANK/MATCHING/REORDER chưa có form con — sẽ thêm ở các task sau. */}
+                            {isChoiceType && (
+                                <ChoiceOptionsForm
+                                    options={options}
+                                    isMulti={isMulti}
+                                    onSelectCorrect={handleSelectCorrect}
+                                    onOptionTextChange={handleOptionTextChange}
+                                />
+                            )}
                         </div>
 
                         {/* Footer Controls & Actions */}
-                        <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-slate-50/20 px-6 py-4.5">
-                            {/* Toggle switcher (Bottom Left) */}
-                            <div className="flex items-center rounded-xl border border-slate-200/50 bg-slate-100/80 p-1">
-                                <button
-                                    type="button"
-                                    onClick={() => handleToggleMulti(false)}
-                                    className={cx(
-                                        "rounded-lg px-4 py-2 text-xs font-bold whitespace-nowrap transition duration-150",
-                                        !isMulti ? "bg-slate-700 text-white shadow-sm" : "text-slate-500 hover:text-slate-800",
-                                    )}
-                                >
-                                    {UI_TEXT.examsSetsEl.btnSingleCorrect}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleToggleMulti(true)}
-                                    className={cx(
-                                        "rounded-lg px-4 py-2 text-xs font-bold whitespace-nowrap transition duration-150",
-                                        isMulti ? "bg-slate-700 text-white shadow-sm" : "text-slate-500 hover:text-slate-800",
-                                    )}
-                                >
-                                    {UI_TEXT.examsSetsEl.btnMultiCorrect}
-                                </button>
-                            </div>
-
-                            {/* Cancel / Save actions (Bottom Right) */}
+                        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 bg-slate-50/20 px-6 py-4.5">
+                            {/* Cancel / Save actions */}
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"

@@ -12,13 +12,7 @@ export interface OptionMock {
 // / mapUiQuestionsToBackendDtos ở quiz.types.ts). Ô chọn loại ở question-modal.tsx chỉ
 // liệt kê 5 loại tạo mới được, không có "TEXT" trong danh sách tạo mới; câu tự luận
 // soạn mới thật sự dùng EssayQuestionMock + essay-question-modal.tsx riêng.
-export type QuestionKind =
-    | "SINGLE_CHOICE"
-    | "MULTIPLE_CHOICE"
-    | "FILL_BLANK"
-    | "MATCHING"
-    | "REORDER"
-    | "TEXT";
+export type QuestionKind = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "FILL_BLANK" | "MATCHING" | "REORDER" | "TEXT";
 
 // Một chỗ trống trong dạng bài "điền từ" (FILL_BLANK).
 export interface BlankMock {
@@ -96,4 +90,14 @@ export interface QuestionModalProps {
     onClose: () => void;
     onSave: (question: QuestionMock) => void;
     question?: QuestionMock | null;
+}
+
+// Props của lưới đáp án A/B/C/D dùng chung cho SINGLE_CHOICE và MULTIPLE_CHOICE,
+// tách ra khỏi question-modal.tsx để chỗ thêm form cho FILL_BLANK/MATCHING/REORDER
+// (các task sau) không phải đọc lẫn vào phần logic trắc nghiệm.
+export interface ChoiceOptionsFormProps {
+    options: OptionMock[];
+    isMulti: boolean;
+    onSelectCorrect: (index: number) => void;
+    onOptionTextChange: (index: number, value: string) => void;
 }
