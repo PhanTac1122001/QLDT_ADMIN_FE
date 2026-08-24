@@ -1,3 +1,4 @@
+import { STUDENT_TEMPLATE_FILENAME } from "@/constants/quiz.constants";
 import { httpClient } from "@/lib/http-client";
 import { HttpMethod } from "@/types/api-types";
 import type {
@@ -10,6 +11,7 @@ import type {
     StudentReport,
     StudentTranscriptResponse,
 } from "@/types/student.types";
+import { downloadFileFromApi } from "@/utils/download.utils";
 
 export async function getStudentsReport(): Promise<StudentReport[]> {
     const res = await httpClient<any>("/students/report/by-system", { method: HttpMethod.GET });
@@ -70,6 +72,10 @@ export async function importStudentsExcel(systemId: string, file: File): Promise
         body: formData,
     });
     return res.data || res;
+}
+
+export async function downloadStudentTemplate(): Promise<void> {
+    return downloadFileFromApi("/students/import-template", STUDENT_TEMPLATE_FILENAME);
 }
 
 export async function getStudentClasses(studentId: string): Promise<StudentClassEnrollment[]> {

@@ -2797,6 +2797,11 @@ export const UI_TEXT = {
         toastSuccessDesc: "Đã tải danh sách học viên từ file Excel",
         toastErrorTitle: "Lỗi import",
         toastErrorDefault: "Lỗi tệp dữ liệu",
+        downloadTemplateBtn: "Tải file mẫu",
+        downloadTemplateHint: "Chưa biết cần những cột nào? Tải file mẫu và điền theo đó.",
+        toastDownloadTitle: "Tải file mẫu",
+        toastDownloadSuccess: "Đã tải file mẫu import học viên",
+        toastDownloadError: "Không tải được file mẫu, vui lòng thử lại",
     },
     learningPathModal: {
         title: "Quản lý Lộ trình học của Học viên",

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, X } from "lucide-react";
+import { Download, Upload, X } from "lucide-react";
 import { Heading } from "react-aria-components";
 import { Button } from "@/components/base/buttons/button";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
 import { UI_TEXT } from "@/constants/ui-text.constants";
-import { importStudentsExcel } from "@/services/student.service";
+import { downloadStudentTemplate, importStudentsExcel } from "@/services/student.service";
 import { toast } from "@/services/toast.service";
 import type { ExcelImportModalProps } from "@/types/student.types";
 
@@ -39,6 +39,15 @@ export function ExcelImportModal({ isOpen, onClose, systems }: ExcelImportModalP
         onClose();
     };
 
+    const handleDownloadTemplate = async () => {
+        try {
+            await downloadStudentTemplate();
+            toast.success(UI_TEXT.excelImportModal.toastDownloadTitle, UI_TEXT.excelImportModal.toastDownloadSuccess);
+        } catch {
+            toast.error(UI_TEXT.excelImportModal.toastDownloadTitle, UI_TEXT.excelImportModal.toastDownloadError);
+        }
+    };
+
     return (
         <CustomModal.Root open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <CustomModal.Content className="w-full max-w-md !rounded-[24px]">
@@ -67,6 +76,19 @@ export function ExcelImportModal({ isOpen, onClose, systems }: ExcelImportModalP
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Đặt trên vùng chọn file: người dùng cần biết cấu trúc cột TRƯỚC khi soạn file. */}
+                        <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5">
+                            <span className="text-xs text-slate-500">{UI_TEXT.excelImportModal.downloadTemplateHint}</span>
+                            <button
+                                type="button"
+                                onClick={handleDownloadTemplate}
+                                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-wine/30 bg-white px-3 py-1.5 text-xs font-bold text-wine transition hover:bg-wine/5"
+                            >
+                                <Download className="size-3.5" />
+                                {UI_TEXT.excelImportModal.downloadTemplateBtn}
+                            </button>
                         </div>
 
                         <div className="relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-6 text-center transition hover:border-wine">
