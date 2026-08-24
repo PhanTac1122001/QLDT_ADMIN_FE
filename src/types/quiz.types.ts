@@ -1,10 +1,30 @@
 import type { ExamSetMock, OptionMock, QuestionMock } from "./exam-set.types";
 
-export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TEXT";
+// 6 dạng câu hỏi backend nhận (DTO). Ở tầng UI, admin FE chỉ soạn được 5 dạng
+// (xem QuestionKind trong exam-set.types.ts) — "TEXT" (tự luận) đi qua
+// EssayQuestionMock + essay-question-modal.tsx riêng, không qua QuestionMock.
+export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TEXT" | "FILL_BLANK" | "MATCHING" | "REORDER";
 
 export interface QuizOptionDto {
     content: string;
     isCorrect: boolean;
+}
+
+// Một chỗ trống gửi lên khi tạo/sửa quiz dạng FILL_BLANK.
+export interface QuizBlankDto {
+    index: number;
+    acceptedAnswers: string[];
+}
+
+// Một cặp nối gửi lên khi tạo/sửa quiz dạng MATCHING.
+export interface QuizMatchingPairDto {
+    left: string;
+    right: string;
+}
+
+// Một khối gửi lên khi tạo/sửa quiz dạng REORDER.
+export interface QuizReorderBlockDto {
+    content: string;
 }
 
 export interface QuizQuestionDto {
@@ -13,6 +33,9 @@ export interface QuizQuestionDto {
     points?: number;
     options?: QuizOptionDto[];
     timeInVideo?: number;
+    blanks?: QuizBlankDto[];
+    pairs?: QuizMatchingPairDto[];
+    blocks?: QuizReorderBlockDto[];
 }
 
 export interface QuizBackendEntity {
@@ -31,6 +54,26 @@ export interface QuizBackendEntity {
             _id?: string;
             content: string;
             isCorrect?: boolean;
+        }>;
+        // Dữ liệu đọc về từ server, kèm định danh do server sinh (_id, rightId).
+        // FE KHÔNG gửi các định danh này lên khi tạo/sửa quiz — backend tự gán,
+        // và DTO phía backend dùng whitelist: true nên có gửi cũng bị loại bỏ.
+        // Vì vậy QuizBlankDto/QuizMatchingPairDto/QuizReorderBlockDto (payload gửi đi)
+        // KHÔNG có các trường _id/rightId — đừng thêm chúng vào đó.
+        blanks?: Array<{
+            _id?: string;
+            index: number;
+            acceptedAnswers: string[];
+        }>;
+        pairs?: Array<{
+            _id?: string;
+            rightId?: string;
+            left: string;
+            right: string;
+        }>;
+        blocks?: Array<{
+            _id?: string;
+            content: string;
         }>;
     }>;
     createdAt: string;
