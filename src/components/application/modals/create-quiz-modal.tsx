@@ -289,9 +289,9 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
                                                 // object tra theo q.type thay vì so sánh chuỗi trực tiếp (tránh literal viết
                                                 // hoa trong BinaryExpression bị eslint no-restricted-syntax chặn ở file này).
                                                 const summaryByType: Record<string, string> = {
-                                                    FILL_BLANK: `${(q.blanks ?? []).length}${UI_TEXT.examsSetsEl.separator}${UI_TEXT.examsSetsEl.detailBlanksHeader}`,
-                                                    MATCHING: `${(q.pairs ?? []).length}${UI_TEXT.examsSetsEl.separator}${UI_TEXT.examsSetsEl.detailMatchingHeader}`,
-                                                    REORDER: `${(q.blocks ?? []).length}${UI_TEXT.examsSetsEl.separator}${UI_TEXT.examsSetsEl.detailReorderHeader}`,
+                                                    FILL_BLANK: `${(q.blanks ?? []).length}${UI_TEXT.examsSetsEl.countBlanksSuffix}`,
+                                                    MATCHING: `${(q.pairs ?? []).length}${UI_TEXT.examsSetsEl.countPairsSuffix}`,
+                                                    REORDER: `${(q.blocks ?? []).length}${UI_TEXT.examsSetsEl.countBlocksSuffix}`,
                                                 };
                                                 const typeSummary = summaryByType[q.type];
 
