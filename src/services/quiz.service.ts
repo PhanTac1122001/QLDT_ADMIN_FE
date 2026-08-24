@@ -3,6 +3,7 @@ import { QUIZ_TEMPLATE_FILENAME } from "@/constants/quiz.constants";
 import { httpClient } from "@/lib/http-client";
 import { HttpMethod } from "@/types/api-types";
 import type { CreateQuizPayload, QuizBackendEntity, QuizImportExcelResponse, UpdateQuizPayload } from "@/types/quiz.types";
+import { downloadFileFromApi } from "@/utils/download.utils";
 
 export async function getQuizzes(courseId?: string): Promise<QuizBackendEntity[]> {
     const url = courseId ? `${API_ENDPOINTS.QUIZ.BASE}?courseId=${courseId}` : API_ENDPOINTS.QUIZ.BASE;
@@ -49,17 +50,5 @@ export async function importQuizExcel(file: File): Promise<QuizImportExcelRespon
 }
 
 export async function downloadQuizExcelTemplate(): Promise<void> {
-    const blob = await httpClient<Blob>(API_ENDPOINTS.QUIZ.EXCEL_TEMPLATE, {
-        method: HttpMethod.GET,
-        parseAs: "blob",
-    });
-
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = QUIZ_TEMPLATE_FILENAME;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(downloadUrl);
+    return downloadFileFromApi(API_ENDPOINTS.QUIZ.EXCEL_TEMPLATE, QUIZ_TEMPLATE_FILENAME);
 }

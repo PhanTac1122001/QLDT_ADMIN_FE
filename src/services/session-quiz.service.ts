@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from "@/constants/api-endpoints.constants";
 import { DEFAULT_OPTIONS_LIMIT, DEFAULT_PAGE_SIZE } from "@/constants/options.constants";
+import { SESSION_QUIZ_TEMPLATE_FILENAME } from "@/constants/quiz.constants";
 import { httpClient } from "@/lib/http-client";
 import { HttpMethod } from "@/types/api-types";
 import type {
@@ -10,6 +11,7 @@ import type {
     SessionQuizListResponse,
     UpdateSessionQuizPayload,
 } from "@/types/session-quiz.types";
+import { downloadFileFromApi } from "@/utils/download.utils";
 
 export async function getSessionQuizzes(params: QuerySessionQuizParams = {}): Promise<SessionQuizListResponse> {
     const searchParams = new URLSearchParams();
@@ -83,23 +85,5 @@ export async function importExcelQuestions(file: File): Promise<ImportExcelRespo
 }
 
 export async function downloadExcelTemplate(): Promise<void> {
-    const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") || localStorage.getItem("token") : null;
-    const response = await fetch(API_ENDPOINTS.SESSION_QUIZ.EXCEL_TEMPLATE, {
-        method: "GET",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-
-    if (!response.ok) {
-        throw new Error("Không thể tải file mẫu Excel");
-    }
-
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = "session_quiz_import_template.xlsx";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(downloadUrl);
+    return downloadFileFromApi(API_ENDPOINTS.SESSION_QUIZ.EXCEL_TEMPLATE, SESSION_QUIZ_TEMPLATE_FILENAME);
 }

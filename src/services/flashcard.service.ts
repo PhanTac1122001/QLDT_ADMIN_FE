@@ -1,4 +1,5 @@
 import { API_ENDPOINTS } from "@/constants/api-endpoints.constants";
+import { FLASHCARD_TEMPLATE_FILENAME } from "@/constants/quiz.constants";
 import { httpClient } from "@/lib/http-client";
 import { HttpMethod } from "@/types/api-types";
 import type {
@@ -9,6 +10,7 @@ import type {
     ImportFlashcardExcelResponse,
     UpdateFlashcardDeckPayload,
 } from "@/types/flashcard.types";
+import { downloadFileFromApi } from "@/utils/download.utils";
 
 export async function getFlashcardDecks(params: { courseId?: string; search?: string } = {}): Promise<FlashcardDeckSummary[]> {
     const searchParams = new URLSearchParams();
@@ -93,17 +95,5 @@ export async function importFlashcardExcel(sessionId: string, file: File, deckNa
 }
 
 export async function downloadFlashcardTemplate(): Promise<void> {
-    const blob = await httpClient<Blob>(API_ENDPOINTS.FLASHCARD_DECK.EXCEL_TEMPLATE, {
-        method: HttpMethod.GET,
-        parseAs: "blob",
-    });
-
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = downloadUrl;
-    link.download = "flashcard_import_template.xlsx";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(downloadUrl);
+    return downloadFileFromApi(API_ENDPOINTS.FLASHCARD_DECK.EXCEL_TEMPLATE, FLASHCARD_TEMPLATE_FILENAME);
 }
