@@ -280,31 +280,48 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
                                             {UI_TEXT.examsSetsEl.importedCountSuffix}
                                         </span>
                                         <ul className="custom-scrollbar flex max-h-48 flex-col gap-1.5 overflow-y-auto">
-                                            {importedQuestions.map((q, index) => (
-                                                <li
-                                                    key={`${index}-${q.content}`}
-                                                    className="flex items-start justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
-                                                >
-                                                    <div className="flex min-w-0 flex-col gap-0.5">
-                                                        <span className="line-clamp-2 text-[12px] font-semibold text-slate-800">{q.content}</span>
-                                                        <span className="text-[10.5px] font-medium text-slate-500">
-                                                            {getQuestionTypeLabel(q.type)}
-                                                            {UI_TEXT.examsSetsEl.separator}
-                                                            {q.points ?? 0}
-                                                            {UI_TEXT.examsSetsEl.pointsUnit}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleRemoveQuestion(index)}
-                                                        className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                                                        aria-label={UI_TEXT.examsSetsEl.removeQuestionTooltip}
-                                                        title={UI_TEXT.examsSetsEl.removeQuestionTooltip}
+                                            {importedQuestions.map((q, index) => {
+                                                // Tóm tắt gọn cho 3 dạng mới (FILL_BLANK/MATCHING/REORDER): preview này là
+                                                // danh sách rút gọn, không đủ chỗ cho QuestionAnswerPreview (component thiết
+                                                // kế cho card chi tiết đầy đủ ở màn chi tiết bộ đề) — mỗi câu import chỉ cần
+                                                // một dòng cho biết "có bao nhiêu phần tử" để staff biết mình đã đọc đúng
+                                                // dòng Excel, không cần xem chi tiết từng chỗ trống/cặp/khối ở đây. Dùng
+                                                // object tra theo q.type thay vì so sánh chuỗi trực tiếp (tránh literal viết
+                                                // hoa trong BinaryExpression bị eslint no-restricted-syntax chặn ở file này).
+                                                const summaryByType: Record<string, string> = {
+                                                    FILL_BLANK: `${(q.blanks ?? []).length}${UI_TEXT.examsSetsEl.separator}${UI_TEXT.examsSetsEl.detailBlanksHeader}`,
+                                                    MATCHING: `${(q.pairs ?? []).length}${UI_TEXT.examsSetsEl.separator}${UI_TEXT.examsSetsEl.detailMatchingHeader}`,
+                                                    REORDER: `${(q.blocks ?? []).length}${UI_TEXT.examsSetsEl.separator}${UI_TEXT.examsSetsEl.detailReorderHeader}`,
+                                                };
+                                                const typeSummary = summaryByType[q.type];
+
+                                                return (
+                                                    <li
+                                                        key={`${index}-${q.content}`}
+                                                        className="flex items-start justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
                                                     >
-                                                        <X className="size-4" />
-                                                    </button>
-                                                </li>
-                                            ))}
+                                                        <div className="flex min-w-0 flex-col gap-0.5">
+                                                            <span className="line-clamp-2 text-[12px] font-semibold text-slate-800">{q.content}</span>
+                                                            <span className="text-[10.5px] font-medium text-slate-500">
+                                                                {getQuestionTypeLabel(q.type)}
+                                                                {UI_TEXT.examsSetsEl.separator}
+                                                                {q.points ?? 0}
+                                                                {UI_TEXT.examsSetsEl.pointsUnit}
+                                                            </span>
+                                                            {typeSummary && <span className="text-[10.5px] font-medium text-slate-400">{typeSummary}</span>}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveQuestion(index)}
+                                                            className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                                            aria-label={UI_TEXT.examsSetsEl.removeQuestionTooltip}
+                                                            title={UI_TEXT.examsSetsEl.removeQuestionTooltip}
+                                                        >
+                                                            <X className="size-4" />
+                                                        </button>
+                                                    </li>
+                                                );
+                                            })}
                                         </ul>
                                     </div>
                                 ) : (
