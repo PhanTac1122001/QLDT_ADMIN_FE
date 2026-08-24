@@ -5,17 +5,20 @@ export interface OptionMock {
     isCorrect: boolean;
 }
 
-// Các dạng câu hỏi mà admin FE hỗ trợ soạn/hiển thị.
-// Lưu ý: KHÔNG có "TEXT" ở đây — modal soạn câu hỏi trắc nghiệm (question-modal.tsx)
-// chưa bao giờ soạn được câu tự luận (luôn ép đúng 4 đáp án A/B/C/D).
-// Câu tự luận dùng EssayQuestionMock + essay-question-modal.tsx riêng.
-// Backend vẫn nhận "TEXT" nên QuestionType ở quiz.types.ts (tầng DTO) vẫn giữ đủ 6 giá trị.
+// Các dạng câu hỏi mà QuestionMock có thể mang. "TEXT" CÓ mặt ở đây dù modal soạn
+// câu hỏi trắc nghiệm (question-modal.tsx) không tạo mới được nó (luôn ép đúng 4
+// đáp án A/B/C/D) — vì dữ liệu quiz cũ và câu import từ Excel vẫn sinh ra câu "TEXT"
+// thật, và nó phải round-trip qua QuestionMock nguyên vẹn (xem mapBackendQuizToExamSet
+// / mapUiQuestionsToBackendDtos ở quiz.types.ts). Ô chọn loại ở question-modal.tsx chỉ
+// liệt kê 5 loại tạo mới được, không có "TEXT" trong danh sách tạo mới; câu tự luận
+// soạn mới thật sự dùng EssayQuestionMock + essay-question-modal.tsx riêng.
 export type QuestionKind =
     | "SINGLE_CHOICE"
     | "MULTIPLE_CHOICE"
     | "FILL_BLANK"
     | "MATCHING"
-    | "REORDER";
+    | "REORDER"
+    | "TEXT";
 
 // Một chỗ trống trong dạng bài "điền từ" (FILL_BLANK).
 export interface BlankMock {

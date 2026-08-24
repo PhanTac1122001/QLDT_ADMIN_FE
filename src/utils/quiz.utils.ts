@@ -29,10 +29,12 @@ export function mapImportedQuestionsToUiQuestions(questions: QuizQuestionDto[], 
             isCorrect: Boolean(opt.isCorrect),
         }));
 
-        // Excel có thể khai "TEXT" (câu tự luận), nhưng QuestionKind (shape UI của
-        // question-modal.tsx) không có "TEXT" — câu tự luận đi qua EssayQuestionMock +
-        // essay-question-modal.tsx riêng, không nạp qua đường import trắc nghiệm này.
-        const type: QuestionKind = q.type === "TEXT" ? "SINGLE_CHOICE" : q.type;
+        // Template Excel có sẵn dòng ví dụ "TEXT" (câu tự luận). KHÔNG được đổi nó
+        // thành SINGLE_CHOICE ở đây: câu TEXT không có option, nếu ép về SINGLE_CHOICE
+        // thì lần lưu tiếp theo (sync toàn bộ mảng câu hỏi) sẽ gửi lên một câu "trắc
+        // nghiệm" 0 đáp án đúng và bị backend từ chối, hỏng cả bộ đề chứ không chỉ câu
+        // đó. Giữ nguyên q.type — mapUiQuestionsToBackendDtos đã có nhánh riêng cho TEXT.
+        const type: QuestionKind = q.type;
 
         const blanks: BlankMock[] | undefined = q.blanks?.map((b, bIndex) => ({
             id: `${idPrefix}-${qIndex}-blank-${bIndex}`,

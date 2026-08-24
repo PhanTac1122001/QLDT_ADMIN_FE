@@ -137,12 +137,14 @@ export function mapBackendQuizToExamSet(quiz: QuizBackendEntity): ExamSetMock {
             isCorrect: Boolean(opt.isCorrect),
         }));
 
-        // Backend có thể trả "TEXT" (câu tự luận), nhưng QuestionKind (shape UI của
-        // question-modal.tsx) không có "TEXT" — modal này chưa bao giờ soạn được câu
-        // tự luận (luôn ép đúng 4 đáp án A/B/C/D). Câu tự luận thật sự đi qua
-        // EssayQuestionMock + essay-question-modal.tsx riêng, không qua đường này.
-        // Map về SINGLE_CHOICE để không phá kiểu, dữ liệu options rỗng vẫn giữ nguyên.
-        const type: QuestionKind = q.type === QUESTION_TYPE_TEXT ? QUESTION_TYPE_SINGLE_CHOICE : q.type;
+        // Backend có thể trả "TEXT" (câu tự luận nhập qua Excel hoặc dữ liệu cũ).
+        // KHÔNG được đổi nó thành SINGLE_CHOICE ở đây: câu TEXT không có option nào,
+        // nếu ép về SINGLE_CHOICE thì lần lưu tiếp theo (sync toàn bộ mảng câu hỏi)
+        // sẽ gửi lên một câu "trắc nghiệm" 0 đáp án đúng, bị backend từ chối
+        // (assertQuestionBank: "chưa có đáp án đúng nào") — hỏng cả bộ đề, không chỉ
+        // câu đó. Giữ nguyên q.type; question-modal.tsx không cho TẠO MỚI câu TEXT
+        // nhưng vẫn phải hiển thị/lưu lại đúng câu TEXT đã có.
+        const type: QuestionKind = q.type;
 
         const blanks: BlankMock[] | undefined = q.blanks?.map((b, bIndex) => ({
             id: b._id || `blank_${bIndex}`,
@@ -190,6 +192,21 @@ export function mapBackendQuizToExamSet(quiz: QuizBackendEntity): ExamSetMock {
 export function mapUiQuestionsToBackendDtos(questions: QuestionMock[]): QuizQuestionDto[] {
     return questions.map((q) => {
         const type: QuestionType = q.type;
+
+        // Câu TEXT (tự luận) không có options/blanks/pairs/blocks trong UI, và KHÔNG
+        // ĐƯỢC tự chế ra options rỗng cho nó — trông có vẻ là nhánh thừa (question-modal
+        // không tạo mới được TEXT) nhưng nó là đường sống sót cho câu TEXT nhập qua
+        // Excel hoặc có sẵn từ trước: xoá nhánh này thì bước sync toàn bộ mảng câu hỏi
+        // ở lần lưu kế tiếp sẽ gửi một câu "trắc nghiệm" 0 đáp án đúng lên backend,
+        // và assertQuestionBank từ chối cả bộ đề ("chưa có đáp án đúng nào"). Backend
+        // bỏ qua validate đáp án khi type === TEXT nên chỉ cần gửi đúng content/points.
+        if (type === QUESTION_TYPE_TEXT) {
+            return {
+                content: q.explanation || q.text,
+                type,
+                points: q.points || DEFAULT_QUESTION_POINTS,
+            };
+        }
 
         const options: QuizOptionDto[] | undefined =
             type === QUESTION_TYPE_SINGLE_CHOICE || type === QUESTION_TYPE_MULTIPLE_CHOICE
