@@ -1,10 +1,3 @@
-export type FlashcardDeckStatus = "DRAFT" | "PUBLISHED";
-
-export enum FlashcardDeckStatusEnum {
-    DRAFT = "DRAFT",
-    PUBLISHED = "PUBLISHED",
-}
-
 export interface FlashcardCard {
     id?: string;
     _id?: string;
@@ -23,7 +16,7 @@ export interface FlashcardDeck {
     description?: string;
     courseId?: string;
     language?: string;
-    status: FlashcardDeckStatus | string;
+    status: boolean;
     cards: FlashcardCard[];
     cardCount: number;
     createdAt: string;
@@ -35,7 +28,7 @@ export interface FlashcardDeckSummary {
     description?: string;
     courseId?: string;
     language?: string;
-    status: FlashcardDeckStatus | string;
+    status: boolean;
     cardCount: number;
     createdAt: string;
 }
@@ -45,7 +38,7 @@ export interface CreateFlashcardDeckPayload {
     description?: string;
     courseId?: string;
     language?: string;
-    status?: FlashcardDeckStatus | string;
+    status?: boolean;
     cards?: FlashcardCard[];
 }
 
