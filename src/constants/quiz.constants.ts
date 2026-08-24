@@ -6,4 +6,5 @@ export const QUIZ_IMPORT_ACCEPT = ".xlsx, .xls";
 export const QUIZ_TEMPLATE_FILENAME = "quiz_import_template.xlsx";
 export const SESSION_QUIZ_TEMPLATE_FILENAME = "session_quiz_import_template.xlsx";
 export const FLASHCARD_TEMPLATE_FILENAME = "flashcard_import_template.xlsx";
+export const STUDENT_TEMPLATE_FILENAME = "student_import_template.xlsx";
 export const CHAR_CODE_CAPITAL_A = 65;
