@@ -5,7 +5,7 @@ import { UI_TEXT } from "@/constants/ui-text.constants";
 import { getFlashcardDeckById } from "@/services/flashcard.service";
 import { sessionTypeService } from "@/services/session-type.service";
 import type { SessionFormProps, SessionTypeOption } from "@/types/courseware.types";
-import { FlashcardDeckStatusEnum, type FlashcardDeckSummary } from "@/types/flashcard.types";
+import type { FlashcardDeckSummary } from "@/types/flashcard.types";
 import { SessionTypeEnum } from "@/types/material.types";
 
 export function SessionForm({
@@ -315,7 +315,7 @@ export function SessionForm({
                                                     {UI_TEXT.sessionForm.flashcardCardCountPrefix}
                                                     {flashcardDeck.cardCount}
                                                     {" • "}
-                                                    {flashcardDeck.status === FlashcardDeckStatusEnum.PUBLISHED
+                                                    {flashcardDeck.status
                                                         ? UI_TEXT.sessionForm.flashcardStatusPublished
                                                         : UI_TEXT.sessionForm.flashcardStatusDraft}
                                                 </span>

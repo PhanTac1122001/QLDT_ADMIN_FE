@@ -19,7 +19,7 @@ import {
     updateFlashcardDeck,
 } from "@/services/flashcard.service";
 import { toast } from "@/services/toast.service";
-import { type FlashcardCard, type FlashcardDeckModalProps, FlashcardDeckStatusEnum } from "@/types/flashcard.types";
+import type { FlashcardCard, FlashcardDeckModalProps } from "@/types/flashcard.types";
 
 const descriptionRows = 2;
 const exampleRows = 2;
@@ -37,11 +37,11 @@ export function FlashcardDeckModal({ isOpen, onClose, sessionId, deckId, courseI
     const originalCardsRef = useRef<FlashcardCard[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const applyDeck = (deck: { id: string; name: string; description?: string; status: string; cards?: FlashcardCard[] }) => {
+    const applyDeck = (deck: { id: string; name: string; description?: string; status: boolean; cards?: FlashcardCard[] }) => {
         setCurrentDeckId(deck.id);
         setName(deck.name || "");
         setDescription(deck.description || "");
-        setIsPublished(deck.status === FlashcardDeckStatusEnum.PUBLISHED);
+        setIsPublished(Boolean(deck.status));
         const loadedCards = deck.cards || [];
         setCards(loadedCards.map((c) => ({ ...c })));
         originalCardsRef.current = loadedCards.map((c) => ({ ...c }));
@@ -184,8 +184,6 @@ export function FlashcardDeckModal({ isOpen, onClose, sessionId, deckId, courseI
             return;
         }
 
-        const status = isPublished ? FlashcardDeckStatusEnum.PUBLISHED : FlashcardDeckStatusEnum.DRAFT;
-
         try {
             setIsSaving(true);
 
@@ -194,7 +192,7 @@ export function FlashcardDeckModal({ isOpen, onClose, sessionId, deckId, courseI
                     name: name.trim(),
                     description: description.trim() || undefined,
                     courseId,
-                    status,
+                    status: isPublished,
                     cards: cards.map((c, i) => buildCardPayload(c, i)),
                 });
                 const refreshed = await getFlashcardDeckById(created.id);
@@ -204,7 +202,7 @@ export function FlashcardDeckModal({ isOpen, onClose, sessionId, deckId, courseI
                 await updateFlashcardDeck(currentDeckId, {
                     name: name.trim(),
                     description: description.trim() || undefined,
-                    status,
+                    status: isPublished,
                 });
                 await syncCards(currentDeckId);
                 const refreshed = await getFlashcardDeckById(currentDeckId);
