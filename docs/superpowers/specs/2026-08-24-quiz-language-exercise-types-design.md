@@ -83,9 +83,23 @@ export interface QuestionMock {
 }
 ```
 
-`TEXT` **không** có trong `QuestionKind`: modal này chưa bao giờ soạn được câu tự luận
-(luôn ép đúng 4 đáp án), câu tự luận có `essay-question-modal` riêng. Backend vẫn nhận
-`TEXT` nên `QuestionType` ở tầng DTO giữ đủ 6 giá trị.
+`QuestionKind` **có** `TEXT`, dù modal này không cho tạo mới câu tự luận.
+
+> **Sửa spec (2026-08-24, phát hiện ngay sau khi làm mapper).** Bản đầu để `TEXT`
+> ngoài `QuestionKind` và map `TEXT → SINGLE_CHOICE`, với lập luận "modal này chưa
+> bao giờ soạn được câu tự luận". Lập luận đó **bỏ sót đường import Excel**: template
+> của backend có sẵn một dòng ví dụ `TEXT`, và `mapImportedQuestionsToUiQuestions`
+> chính là hàm xử lý câu import.
+>
+> Chuỗi hỏng: staff import Excel có dòng `TEXT` → UI biến thành `SINGLE_CHOICE` với 0
+> đáp án → staff sửa bất kỳ câu nào khác → `syncQuestionsToBackend` gửi lại **toàn bộ**
+> mảng → backend `assertQuestionBank` từ chối *"chưa có đáp án đúng nào"* → **400, cả
+> bộ đề không lưu được nữa**, và staff không có cách nào tự thoát.
+>
+> Nên `TEXT` phải **round-trip nguyên vẹn**: mapper giữ nguyên `q.type`, và
+> `mapUiQuestionsToBackendDtos` gửi `type: "TEXT"` không kèm đáp án nào (backend bỏ
+> qua câu `TEXT` khi validate). Ô chọn loại ở modal chỉ liệt kê **5 loại tạo mới
+> được**; mở sửa câu `TEXT` sẵn có thì vẫn hiện đúng loại của nó.
 
 ### 3.2. Shape DTO backend (`src/types/quiz.types.ts`)
 
