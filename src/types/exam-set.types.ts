@@ -131,3 +131,12 @@ export interface ReorderBlocksFormProps {
     blocks: ReorderBlockMock[];
     onBlocksChange: (blocks: ReorderBlockMock[]) => void;
 }
+
+// Props của khối hiển thị đáp án ở màn chi tiết bộ đề (question-answer-preview.tsx).
+// Nhận nguyên `QuestionMock` (không tách lẻ từng field) vì cách render rẽ nhánh hoàn
+// toàn theo `question.type` — SINGLE_CHOICE/MULTIPLE_CHOICE giữ nguyên khối
+// radio/checkbox hiện có, TEXT không render gì, còn FILL_BLANK/MATCHING/REORDER đọc
+// thẳng `blanks`/`pairs`/`blocks` của chính câu hỏi đó.
+export interface QuestionAnswerPreviewProps {
+    question: QuestionMock;
+}
