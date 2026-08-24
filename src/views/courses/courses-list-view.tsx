@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Award, CalendarPlus, Eye, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import type { Route } from "next";
@@ -15,7 +15,9 @@ import { TablePagination } from "@/components/application/pagination/table-pagin
 import { SearchFilters } from "@/components/application/search-filters/search-filters";
 import { HTTP_STATUS_UNPROCESSABLE_ENTITY } from "@/constants/http.constants";
 import { DEFAULT_OPTIONS_LIMIT } from "@/constants/options.constants";
+import { COURSE_PUBLISH_BADGE_CLASSES, COURSE_PUBLISH_DOT_CLASSES, COURSE_PUBLISH_STATUS_QUERY_KEY } from "@/constants/publish.constants";
 import { UI_TEXT } from "@/constants/ui-text.constants";
+import { useCoursePublishStates } from "@/hooks/use-course-publish-states";
 import { HttpError } from "@/lib/http-client";
 import { createCourse, deleteCourse, getCoursesList, updateCourse } from "@/services/course.service";
 import { publishService } from "@/services/publish.service";
@@ -81,7 +83,8 @@ export function CoursesListView() {
 
     const publishMutation = useMutation({
         mutationFn: (courseId: string) => publishService.publishCourse(courseId),
-        onSuccess: (report) => {
+        onSuccess: (report, courseId) => {
+            queryClient.invalidateQueries({ queryKey: [COURSE_PUBLISH_STATUS_QUERY_KEY, courseId] });
             setPublishReport(report ?? { errors: [], warnings: [] });
             setIsPublishSuccess(true);
             setIsPublishReportOpen(true);
@@ -138,6 +141,8 @@ export function CoursesListView() {
     const total = courses.length;
     const totalPages = Math.ceil(total / limit) || 1;
     const paginatedCourses = courses.slice((page - 1) * limit, page * limit);
+    const paginatedCourseIds = useMemo(() => paginatedCourses.map((item) => item.id), [paginatedCourses]);
+    const publishStates = useCoursePublishStates(paginatedCourseIds);
 
     return (
         <div className="flex min-h-0 w-full flex-1 flex-col gap-6">
@@ -163,19 +168,20 @@ export function CoursesListView() {
                                 <th className="w-16 px-6 py-4 text-center">{UI_TEXT.coursesPage.thStt}</th>
                                 <th className="w-48 px-6 py-4">{UI_TEXT.coursesPage.thCode}</th>
                                 <th className="px-6 py-4">{UI_TEXT.coursesPage.thTitle}</th>
+                                <th className="w-44 px-6 py-4 text-center">{UI_TEXT.coursesPage.thPublishStatus}</th>
                                 <th className="w-48 px-6 py-4 text-center">{UI_TEXT.coursesPage.thActions}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {isLoading ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-muted">
+                                    <td colSpan={5} className="px-6 py-12 text-center text-muted">
                                         {UI_TEXT.coursesPage.loading}
                                     </td>
                                 </tr>
                             ) : paginatedCourses.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-muted">
+                                    <td colSpan={5} className="px-6 py-12 text-center text-muted">
                                         {UI_TEXT.coursesPage.noDataTitle}
                                     </td>
                                 </tr>
@@ -192,6 +198,15 @@ export function CoursesListView() {
                                         </td>
                                         <td className="border-b border-line px-6 py-4 group-last:border-b-0">
                                             <div className="text-sm font-bold text-slate-900">{item.title}</div>
+                                        </td>
+                                        <td className="border-b border-line px-6 py-4 text-center whitespace-nowrap group-last:border-b-0">
+                                            <span
+                                                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${COURSE_PUBLISH_BADGE_CLASSES[publishStates[item.id]]}`}
+                                                title={UI_TEXT.coursesPage.publishStatusTooltips[publishStates[item.id]]}
+                                            >
+                                                <span className={`size-1.5 rounded-full ${COURSE_PUBLISH_DOT_CLASSES[publishStates[item.id]]}`} />
+                                                {UI_TEXT.coursesPage.publishStatusLabels[publishStates[item.id]]}
+                                            </span>
                                         </td>
                                         <td className="border-b border-line px-6 py-4 text-center group-last:border-b-0">
                                             <div className="flex items-center justify-center gap-1.5">
