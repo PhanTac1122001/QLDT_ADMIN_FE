@@ -18,8 +18,13 @@
 - Working dir: `C:\Users\ADMIN\Desktop\New folder\QLDT_ADMIN_FE`. Nhánh: `feat/quiz-language-exercise-types`.
 - **Repo KHÔNG có unit test** cho màn CRUD. Cổng verify là 3 lệnh, cả 3 phải sạch:
   - `npm run type-check`
-  - `npm run lint:check` — chạy `--max-warnings=0`, **warning = fail**
+  - `npx eslint src --max-warnings=0`
   - `npm run build`
+
+  ⚠️ **KHÔNG dùng `npm run lint:check`** — nó chạy `eslint .` nên quét cả thư mục
+  `deploy/.next/` (build output còn sót lại trong repo) và báo **279.155 lỗi/cảnh báo
+  sẵn có** không liên quan tới code nguồn. Đo lúc bắt đầu: `npx eslint src
+  --max-warnings=0` exit 0, `npm run type-check` sạch — đó là baseline thật.
 - **ESLint rất nghiêm** trong `src/components` và `src/views`: cấm chuỗi tiếng Việt hardcode (phải lấy từ `UI_TEXT`), cấm hex literal thô, cấm magic number, cấm hằng UPPER_CASE, cấm khai `interface`/`type` inline (đưa ra `src/types/*.ts`).
 - Hằng số dùng chung để ở `src/constants/*` (đã có `src/constants/quiz.constants.ts`).
 - Pre-commit hook chạy `type-check` — commit sẽ fail nếu type sai.
