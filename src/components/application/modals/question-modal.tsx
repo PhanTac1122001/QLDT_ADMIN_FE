@@ -5,13 +5,15 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import { Heading } from "react-aria-components";
 import { ChoiceOptionsForm } from "@/components/application/modals/question-forms/choice-options-form";
+import { FillBlankForm, parseMarkerIndexesRaw } from "@/components/application/modals/question-forms/fill-blank-form";
 import { TiptapEditor } from "@/components/base/editor";
 import { Select } from "@/components/base/select/select";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
+import { MIN_FILL_BLANKS } from "@/constants/quiz.constants";
 import { UI_TEXT } from "@/constants/ui-text.constants";
 import { toast } from "@/services/toast.service";
 import type { SelectItemType } from "@/types/base-components.types";
-import type { OptionMock, QuestionKind, QuestionMock, QuestionModalProps } from "@/types/exam-set.types";
+import type { BlankMock, OptionMock, QuestionKind, QuestionMock, QuestionModalProps } from "@/types/exam-set.types";
 
 const defaultOptions = (): OptionMock[] => [
     { id: "o1", label: "A", text: "", isCorrect: true },
@@ -38,11 +40,13 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
     const [explanation, setExplanation] = useState("");
     const [options, setOptions] = useState<OptionMock[]>(defaultOptions());
     const [type, setType] = useState<QuestionKind>("SINGLE_CHOICE");
+    const [blanks, setBlanks] = useState<BlankMock[]>([]);
 
     // Trắc nghiệm nhiều đáp án đúng giờ suy ra thẳng từ type, không còn là state riêng.
     const isMulti = type === "MULTIPLE_CHOICE";
     const isChoiceType = type === "SINGLE_CHOICE" || type === "MULTIPLE_CHOICE";
     const isTextQuestion = type === "TEXT";
+    const isFillBlank = type === "FILL_BLANK";
     // Chỉ thêm mục "TEXT" vào danh sách khi đang sửa một câu TEXT sẵn có, để ô chọn
     // hiện đúng loại của nó; mục này bị khoá (isDisabled) và Select cũng bị khoá toàn bộ.
     const questionTypeItems: SelectItemType[] = isTextQuestion
@@ -55,6 +59,7 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 setPoints(question.points);
                 setExplanation(question.explanation);
                 setType(question.type);
+                setBlanks(question.blanks || []);
 
                 // Ensure exactly 4 options
                 const loadedOpts = [...question.options];
@@ -73,6 +78,7 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 setExplanation("");
                 setOptions(defaultOptions());
                 setType("SINGLE_CHOICE");
+                setBlanks([]);
             }
         }
     }, [isOpen, question]);
@@ -139,6 +145,38 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
             }
         }
 
+        // Bốn luật của assertQuestionBank (backend) cho FILL_BLANK, chặn trước ở FE để
+        // staff không phải đoán lỗi 400: đủ số chỗ trống tối thiểu, mỗi chỗ trống có
+        // đáp án, đề không có marker trùng số, và tập số marker khớp đúng tập
+        // blanks[].index.
+        if (isFillBlank) {
+            if (blanks.length < MIN_FILL_BLANKS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorFillBlankMissing);
+                return;
+            }
+
+            const hasBlankWithoutAnswer = blanks.some((b) => b.acceptedAnswers.every((a) => !a.trim()));
+            if (hasBlankWithoutAnswer) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorBlankNoAnswer);
+                return;
+            }
+
+            const rawMarkerIndexes = parseMarkerIndexesRaw(explanation);
+            const hasDuplicateMarker = rawMarkerIndexes.length !== new Set(rawMarkerIndexes).size;
+            if (hasDuplicateMarker) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerDuplicate);
+                return;
+            }
+
+            const markerIndexSet = new Set(rawMarkerIndexes);
+            const blankIndexSet = new Set(blanks.map((b) => b.index));
+            const sameIndexSet = markerIndexSet.size === blankIndexSet.size && Array.from(markerIndexSet).every((idx) => blankIndexSet.has(idx));
+            if (!sameIndexSet) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerMismatch);
+                return;
+            }
+        }
+
         const questionText = plainText.length > 120 ? plainText.slice(0, 120) + "..." : plainText;
 
         const newQuestion: QuestionMock = {
@@ -151,6 +189,11 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 text: opt.text.trim(),
             })),
             type,
+            // Chỉ gửi blanks khi đúng là câu điền từ — đổi loại sang trắc nghiệm/khác
+            // rồi lưu không được mang theo blanks cũ.
+            blanks: isFillBlank
+                ? blanks.map((b) => ({ ...b, acceptedAnswers: b.acceptedAnswers.map((a) => a.trim()).filter((a) => a.length > 0) }))
+                : undefined,
         };
 
         onSave(newQuestion);
@@ -217,14 +260,20 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                                 </div>
                             </div>
 
-                            {/* Rich Editor Description */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelQuestionDesc}</label>
-                                <TiptapEditor value={explanation} onChange={setExplanation} placeholder={UI_TEXT.examsSetsEl.placeholderQuestionDesc} />
-                            </div>
+                            {/* Rich Editor Description: dùng cho mọi loại TRỪ FILL_BLANK. Câu điền từ
+                                cần <textarea> thường (selectionStart) để chèn marker {{n}} đúng vị trí
+                                con trỏ — xem comment giải thích đầy đủ trong fill-blank-form.tsx. */}
+                            {isFillBlank ? (
+                                <FillBlankForm content={explanation} onContentChange={setExplanation} blanks={blanks} onBlanksChange={setBlanks} />
+                            ) : (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelQuestionDesc}</label>
+                                    <TiptapEditor value={explanation} onChange={setExplanation} placeholder={UI_TEXT.examsSetsEl.placeholderQuestionDesc} />
+                                </div>
+                            )}
 
                             {/* Answers List Section: chỉ SINGLE_CHOICE/MULTIPLE_CHOICE có form ở task này.
-                                FILL_BLANK/MATCHING/REORDER chưa có form con — sẽ thêm ở các task sau. */}
+                                MATCHING/REORDER chưa có form con — sẽ thêm ở các task sau. */}
                             {isChoiceType && (
                                 <ChoiceOptionsForm
                                     options={options}

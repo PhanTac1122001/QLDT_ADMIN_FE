@@ -101,3 +101,16 @@ export interface ChoiceOptionsFormProps {
     onSelectCorrect: (index: number) => void;
     onOptionTextChange: (index: number, value: string) => void;
 }
+
+// Props của form soạn câu điền từ (FILL_BLANK). `content` là nội dung đề bài (chứa
+// marker {{n}}) — chính là state `explanation` của question-modal.tsx, KHÔNG phải
+// state riêng, để giữ round-trip content -> explanation ở mapper. `blanks` là danh
+// sách chỗ trống hiện tại (đồng bộ theo marker có thật trong `content`, xem
+// fill-blank-form.tsx). Cả `content` và `blanks` đều do modal cha sở hữu/điều khiển
+// (controlled) để handleSubmit của modal có thể validate và gửi lên đúng shape.
+export interface FillBlankFormProps {
+    content: string;
+    onContentChange: (value: string) => void;
+    blanks: BlankMock[];
+    onBlanksChange: (blanks: BlankMock[]) => void;
+}
