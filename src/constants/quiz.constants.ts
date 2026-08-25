@@ -11,4 +11,5 @@ export const CHAR_CODE_CAPITAL_A = 65;
 export const MIN_MATCHING_PAIRS = 2;
 export const MIN_REORDER_BLOCKS = 2;
 export const MIN_FILL_BLANKS = 1;
+export const MIN_CHOICE_OPTIONS = 2;
 export const FILL_BLANK_MARKER_REGEX = /\{\{(\d+)\}\}/g;

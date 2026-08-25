@@ -115,7 +115,9 @@ export interface QuizReorderBlockDto { content: string }
 
 `QuizQuestionDto` thêm `blanks?`/`pairs?`/`blocks?`.
 `QuizBackendEntity.questions[]` thêm ba field đó ở dạng đọc về, kèm định danh do server
-sinh: `blanks[]._id`, `pairs[]._id`, `pairs[].rightId`, `blocks[]._id`.
+sinh cho hai dạng sau: `pairs[]._id`, `pairs[].rightId`, `blocks[]._id`. Riêng
+`blanks[]` KHÔNG có `_id` — `toStaffQuestions` (nhánh FILL_BLANK) ở backend chỉ trả
+`{index, acceptedAnswers}` cho mỗi chỗ trống.
 
 **FE KHÔNG gửi `_id`/`rightId` lên.** Backend tự gán (`assertQuestionBank`), và DTO của
 nó dùng `whitelist: true` nên có gửi cũng bị loại. Hệ quả đã biết: mỗi lần sửa quiz,

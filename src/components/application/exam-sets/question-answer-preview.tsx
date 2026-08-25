@@ -55,7 +55,12 @@ export function QuestionAnswerPreview({ question }: QuestionAnswerPreviewProps) 
 
     if (type === "FILL_BLANK") {
         const blanks = question.blanks ?? [];
-        const segments = splitFillBlankContent(question.text ?? "");
+        // Đọc `explanation` (nội dung đầy đủ), KHÔNG phải `text` (bản rút gọn 120 ký tự
+        // sinh ở question-modal.tsx handleSubmit). Ngay sau khi lưu — trước khi API trả
+        // về và mapBackendQuizToExamSet set lại text = q.content đầy đủ — `text` bị cắt
+        // cụt, marker gần cuối câu dài có thể mất hẳn. Fallback về `text` phòng khi
+        // explanation rỗng (không nên xảy ra với FILL_BLANK nhưng an toàn hơn là trắng).
+        const segments = splitFillBlankContent(question.explanation || question.text || "");
 
         return (
             <div className="flex flex-col gap-3 border-t border-slate-100 pt-2">

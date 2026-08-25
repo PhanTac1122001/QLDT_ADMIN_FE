@@ -1,8 +1,12 @@
 import type { BlankMock, ExamSetMock, MatchingPairMock, OptionMock, QuestionKind, QuestionMock, ReorderBlockMock } from "./exam-set.types";
 
-// 6 dạng câu hỏi backend nhận (DTO). Ở tầng UI, admin FE chỉ soạn được 5 dạng
-// (xem QuestionKind trong exam-set.types.ts) — "TEXT" (tự luận) đi qua
-// EssayQuestionMock + essay-question-modal.tsx riêng, không qua QuestionMock.
+// 6 dạng câu hỏi backend nhận (DTO). "TEXT" CÓ mặt trong QuestionKind (xem
+// exam-set.types.ts) và CÓ round-trip qua QuestionMock — dữ liệu quiz cũ và câu
+// import từ Excel sinh ra câu TEXT thật, phải đọc/lưu lại nguyên vẹn qua
+// mapBackendQuizToExamSet/mapUiQuestionsToBackendDtos bên dưới. Chỉ riêng ô chọn
+// loại ở question-modal.tsx là không cho TẠO MỚI câu TEXT (soạn tự luận mới thật sự
+// dùng EssayQuestionMock + essay-question-modal.tsx riêng); sửa một câu TEXT sẵn có
+// vẫn đi qua modal này.
 export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TEXT" | "FILL_BLANK" | "MATCHING" | "REORDER";
 
 export interface QuizOptionDto {
@@ -55,13 +59,17 @@ export interface QuizBackendEntity {
             content: string;
             isCorrect?: boolean;
         }>;
-        // Dữ liệu đọc về từ server, kèm định danh do server sinh (_id, rightId).
+        // Dữ liệu đọc về từ server, kèm định danh do server sinh (_id, rightId) khi có.
         // FE KHÔNG gửi các định danh này lên khi tạo/sửa quiz — backend tự gán,
         // và DTO phía backend dùng whitelist: true nên có gửi cũng bị loại bỏ.
         // Vì vậy QuizBlankDto/QuizMatchingPairDto/QuizReorderBlockDto (payload gửi đi)
         // KHÔNG có các trường _id/rightId — đừng thêm chúng vào đó.
+        //
+        // blanks[] KHÔNG có _id: toStaffQuestions ở backend (nhánh FILL_BLANK,
+        // question.util.ts) chỉ trả {index, acceptedAnswers} cho mỗi chỗ trống — backend
+        // không sinh/tra _id cho blank. Khác với pairs[]/blocks[] bên dưới, nơi backend
+        // có trả _id (và rightId cho pairs) thật.
         blanks?: Array<{
-            _id?: string;
             index: number;
             acceptedAnswers: string[];
         }>;
@@ -146,8 +154,10 @@ export function mapBackendQuizToExamSet(quiz: QuizBackendEntity): ExamSetMock {
         // nhưng vẫn phải hiển thị/lưu lại đúng câu TEXT đã có.
         const type: QuestionKind = q.type;
 
+        // Backend không trả _id cho blank (xem QuizBackendEntity.blanks[] ở trên) nên
+        // luôn tự sinh id cục bộ theo vị trí trong mảng — không có field nào để đọc lại.
         const blanks: BlankMock[] | undefined = q.blanks?.map((b, bIndex) => ({
-            id: b._id || `blank_${bIndex}`,
+            id: `blank_${bIndex}`,
             index: b.index,
             acceptedAnswers: b.acceptedAnswers,
         }));
@@ -237,9 +247,7 @@ export function mapUiQuestionsToBackendDtos(questions: QuestionMock[]): QuizQues
 
         const blocks: QuizReorderBlockDto[] | undefined =
             type === QUESTION_TYPE_REORDER
-                ? (q.blocks || [])
-                      .filter((b) => b.content && b.content.trim() !== "")
-                      .map((b) => ({ content: b.content }))
+                ? (q.blocks || []).filter((b) => b.content && b.content.trim() !== "").map((b) => ({ content: b.content }))
                 : undefined;
 
         return {

@@ -1982,8 +1982,6 @@ export const UI_TEXT = {
         placeholderAnswer: "Nhập câu trả lời",
         labelCorrect: "Đúng",
         labelIncorrect: "Sai",
-        btnSingleCorrect: "Câu trả lời đúng duy nhất",
-        btnMultiCorrect: "Nhiều câu trả lời đúng",
         btnCancel: "Hủy bỏ",
         btnSave: "Lưu",
         toastQuestionAdded: "Đã thêm câu hỏi mới thành công.",
@@ -2088,6 +2086,7 @@ export const UI_TEXT = {
         errorMatchingPairIncomplete: "Mỗi cặp nối phải có đủ cả vế trái và vế phải",
         errorReorderMinBlocks: "Cần ít nhất 2 khối để sắp xếp",
         errorReorderBlockEmpty: "Nội dung khối không được để trống",
+        errorChoiceMinOptions: "Câu trắc nghiệm phải có ít nhất 2 đáp án",
     },
     studentManagement: {
         title: "Quản lý học viên",

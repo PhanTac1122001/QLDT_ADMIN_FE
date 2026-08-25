@@ -11,7 +11,7 @@ import { ReorderBlocksForm } from "@/components/application/modals/question-form
 import { TiptapEditor } from "@/components/base/editor";
 import { Select } from "@/components/base/select/select";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
-import { MIN_FILL_BLANKS, MIN_MATCHING_PAIRS, MIN_REORDER_BLOCKS } from "@/constants/quiz.constants";
+import { MIN_CHOICE_OPTIONS, MIN_FILL_BLANKS, MIN_MATCHING_PAIRS, MIN_REORDER_BLOCKS } from "@/constants/quiz.constants";
 import { UI_TEXT } from "@/constants/ui-text.constants";
 import { toast } from "@/services/toast.service";
 import type { SelectItemType } from "@/types/base-components.types";
@@ -135,6 +135,19 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 });
             });
         }
+
+        // defaultPairs()/defaultBlocks() chỉ chạy ở nhánh tạo mới của useEffect phía
+        // trên; nhánh sửa nạp thẳng question.pairs/question.blocks (rỗng nếu câu đang
+        // sửa vốn không phải MATCHING/REORDER). Nếu không điền lại ở đây, staff mở sửa
+        // một câu trắc nghiệm sẵn có rồi đổi loại sang MATCHING/REORDER sẽ thấy danh
+        // sách rỗng hoàn toàn và phải tự bấm "Thêm" đủ số dòng tối thiểu.
+        if (nextType === "MATCHING" && pairs.length === 0) {
+            setPairs(defaultPairs());
+        }
+        if (nextType === "REORDER" && blocks.length === 0) {
+            setBlocks(defaultBlocks());
+        }
+
         setType(nextType);
     };
 
@@ -159,6 +172,18 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.placeholderAnswer);
                 return;
             }
+
+            // Bỏ ràng buộc "required" trên cả 4 textarea đáp án (branch này) không có
+            // nghĩa là bỏ luôn sàn tối thiểu — trước đây 4 textarea required buộc staff
+            // điền đủ 4, giờ chỉ còn chặn ở đây: ít nhất 2 đáp án có nội dung (không
+            // rỗng sau trim). Backend (assertQuestionBank) chỉ đòi có ít nhất một đáp án
+            // đúng, không đòi số lượng đáp án tối thiểu, nên câu trắc nghiệm chỉ 1 đáp án
+            // vẫn lọt qua backend nếu FE không tự chặn.
+            const filledOptionsCount = options.filter((o) => o.text.trim()).length;
+            if (filledOptionsCount < MIN_CHOICE_OPTIONS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorChoiceMinOptions);
+                return;
+            }
         }
 
         // Bốn luật của assertQuestionBank (backend) cho FILL_BLANK, chặn trước ở FE để
@@ -180,6 +205,18 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
             const rawMarkerIndexes = parseMarkerIndexesRaw(explanation);
             const hasDuplicateMarker = rawMarkerIndexes.length !== new Set(rawMarkerIndexes).size;
             if (hasDuplicateMarker) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerDuplicate);
+                return;
+            }
+
+            // Đối xứng với hasDuplicate(blankIndexes) ở backend (assertQuestionBank).
+            // Trong luồng UI bình thường, effect đồng bộ của FillBlankForm luôn resync
+            // blanks về đúng tập index duy nhất theo marker nên nhánh này không tới được
+            // qua thao tác thường — đây thuần là lớp phòng thủ, phòng khi blanks state bị
+            // sinh ra từ nguồn khác (import Excel, dữ liệu cũ) mà lọt qua effect resync.
+            const rawBlankIndexes = blanks.map((b) => b.index);
+            const hasDuplicateBlankIndex = rawBlankIndexes.length !== new Set(rawBlankIndexes).size;
+            if (hasDuplicateBlankIndex) {
                 toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerDuplicate);
                 return;
             }
