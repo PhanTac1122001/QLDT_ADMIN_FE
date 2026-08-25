@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Award, Calendar, Check, CheckCircle2, ChevronRight, Download, FileText, Folder, HelpCircle, Pencil, Plus, Target, Trash2, Upload } from "lucide-react";
+import { Award, Calendar, CheckCircle2, ChevronRight, Download, FileText, Folder, HelpCircle, Pencil, Plus, Target, Trash2, Upload } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import { QuestionAnswerPreview } from "@/components/application/exam-sets/question-answer-preview";
 import { EssayQuestionModal } from "@/components/application/modals/essay-question-modal";
 import { QuestionModal } from "@/components/application/modals/question-modal";
 import { EXAM_SETS_MOCK } from "@/constants/exam-set-mock.constants";
@@ -14,7 +15,7 @@ import { toast } from "@/services/toast.service";
 import type { EssayQuestionMock, ExamSetDetailViewProps, ExamSetMock, QuestionMock } from "@/types/exam-set.types";
 import { type QuizBackendEntity, mapBackendQuizToExamSet, mapUiQuestionsToBackendDtos } from "@/types/quiz.types";
 import { cx } from "@/utils/cx";
-import { mapImportedQuestionsToUiQuestions } from "@/utils/quiz.utils";
+import { getQuestionTypeLabel, mapImportedQuestionsToUiQuestions } from "@/utils/quiz.utils";
 
 export function ExamSetDetailView({ id }: ExamSetDetailViewProps) {
     const [selectedSet, setSelectedSet] = useState<ExamSetMock | null>(null);
@@ -399,63 +400,17 @@ export function ExamSetDetailView({ id }: ExamSetDetailViewProps) {
                                                 >
                                                     <Trash2 className="size-4" />
                                                 </button>
+                                                <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold text-slate-600">
+                                                    {getQuestionTypeLabel(q.type)}
+                                                </span>
                                                 <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-amber-500 px-3.5 py-1 text-xs font-extrabold text-white shadow-xs">
                                                     {q.points} {UI_TEXT.examsSetsEl.pointsSuffix?.trim() || "điểm"}
                                                 </span>
                                             </div>
                                         </div>
 
-                                        {/* Section Divider & Options Title */}
-                                        <div className="flex flex-col gap-3 border-t border-slate-100 pt-2">
-                                            <span className="text-[11px] font-extrabold tracking-wider text-slate-400 uppercase">
-                                                {UI_TEXT.examsSetsEl.optionsHeader}
-                                            </span>
-                                            <div className="flex flex-col gap-2.5">
-                                                {(() => {
-                                                    const isMultiQuestion = q.options.filter((o) => o.isCorrect).length > 1;
-                                                    return q.options.map((opt) => (
-                                                        <div
-                                                            key={opt.id}
-                                                            className={cx(
-                                                                "flex items-center justify-between rounded-2xl border px-4 py-3 text-xs transition duration-150",
-                                                                opt.isCorrect
-                                                                    ? "border-emerald-300 bg-emerald-50/40 font-semibold text-slate-900"
-                                                                    : "border-slate-200/80 bg-white font-medium text-slate-700",
-                                                            )}
-                                                        >
-                                                            <div className="flex flex-1 items-center gap-3">
-                                                                <div
-                                                                    className={cx(
-                                                                        "flex size-5 shrink-0 items-center justify-center border-2",
-                                                                        isMultiQuestion ? "rounded-md" : "rounded-full",
-                                                                        opt.isCorrect
-                                                                            ? "border-indigo-600 bg-indigo-600 text-white"
-                                                                            : "border-slate-300 bg-white",
-                                                                    )}
-                                                                >
-                                                                    {opt.isCorrect &&
-                                                                        (isMultiQuestion ? (
-                                                                            <Check className="size-3.5 stroke-[3] text-white" />
-                                                                        ) : (
-                                                                            <div className="size-1.5 rounded-full bg-white" />
-                                                                        ))}
-                                                                </div>
-                                                                <span className="text-sm font-bold text-slate-900">
-                                                                    {opt.label}
-                                                                    {". "}
-                                                                    {opt.text}
-                                                                </span>
-                                                            </div>
-                                                            {opt.isCorrect && (
-                                                                <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-3 py-1 text-xs font-bold text-white shadow-xs">
-                                                                    {UI_TEXT.examsSetsEl.correctAnswer}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    ));
-                                                })()}
-                                            </div>
-                                        </div>
+                                        {/* Question answer body — rẽ nhánh theo q.type, xem question-answer-preview.tsx */}
+                                        <QuestionAnswerPreview question={q} />
 
                                         {/* Explanation box (Only if distinct) */}
                                         {q.explanation && q.explanation !== q.text && (

@@ -2,14 +2,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, CheckCircle2, Circle, X } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import { Heading } from "react-aria-components";
+import { ChoiceOptionsForm } from "@/components/application/modals/question-forms/choice-options-form";
+import { FillBlankForm, parseMarkerIndexesRaw } from "@/components/application/modals/question-forms/fill-blank-form";
+import { MatchingPairsForm } from "@/components/application/modals/question-forms/matching-pairs-form";
+import { ReorderBlocksForm } from "@/components/application/modals/question-forms/reorder-blocks-form";
 import { TiptapEditor } from "@/components/base/editor";
+import { Select } from "@/components/base/select/select";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
+import { MIN_CHOICE_OPTIONS, MIN_FILL_BLANKS, MIN_MATCHING_PAIRS, MIN_REORDER_BLOCKS } from "@/constants/quiz.constants";
 import { UI_TEXT } from "@/constants/ui-text.constants";
 import { toast } from "@/services/toast.service";
-import type { OptionMock, QuestionMock, QuestionModalProps } from "@/types/exam-set.types";
-import { cx } from "@/utils/cx";
+import type { SelectItemType } from "@/types/base-components.types";
+import type { BlankMock, MatchingPairMock, OptionMock, QuestionKind, QuestionMock, QuestionModalProps, ReorderBlockMock } from "@/types/exam-set.types";
 
 const defaultOptions = (): OptionMock[] => [
     { id: "o1", label: "A", text: "", isCorrect: true },
@@ -18,17 +24,56 @@ const defaultOptions = (): OptionMock[] => [
     { id: "o4", label: "D", text: "", isCorrect: false },
 ];
 
+// Mặc định 2 dòng rỗng khi tạo mới câu MATCHING/REORDER — tối thiểu là 2 nên đừng bắt
+// staff phải bấm "Thêm" ngay khi vừa mở modal.
+const defaultPairs = (): MatchingPairMock[] => Array.from({ length: MIN_MATCHING_PAIRS }, (_, i) => ({ id: `pair_new_${i + 1}`, left: "", right: "" }));
+
+const defaultBlocks = (): ReorderBlockMock[] => Array.from({ length: MIN_REORDER_BLOCKS }, (_, i) => ({ id: `block_new_${i + 1}`, content: "" }));
+
+// 5 loại tạo mới được từ modal này. "TEXT" (câu tự luận) CỐ Ý không nằm trong danh
+// sách này: câu tự luận soạn mới thật sự dùng EssayQuestionMock + essay-question-modal.tsx
+// riêng. Nếu đang sửa một câu TEXT sẵn có (dữ liệu cũ / import Excel), ô chọn vẫn phải
+// hiện đúng "Tự luận" (xem questionTypeItems bên dưới) nhưng bị khoá lại — không cho đổi
+// sang loại khác và không cho tạo mới TEXT ở đây.
+const creatableQuestionTypeItems: SelectItemType[] = [
+    { id: "SINGLE_CHOICE", label: UI_TEXT.examsSetsEl.questionTypeSingle },
+    { id: "MULTIPLE_CHOICE", label: UI_TEXT.examsSetsEl.questionTypeMultiple },
+    { id: "FILL_BLANK", label: UI_TEXT.examsSetsEl.questionTypeFillBlank },
+    { id: "MATCHING", label: UI_TEXT.examsSetsEl.questionTypeMatching },
+    { id: "REORDER", label: UI_TEXT.examsSetsEl.questionTypeReorder },
+];
+
 export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionModalProps) {
     const [points, setPoints] = useState(10);
     const [explanation, setExplanation] = useState("");
     const [options, setOptions] = useState<OptionMock[]>(defaultOptions());
-    const [isMulti, setIsMulti] = useState(false);
+    const [type, setType] = useState<QuestionKind>("SINGLE_CHOICE");
+    const [blanks, setBlanks] = useState<BlankMock[]>([]);
+    const [pairs, setPairs] = useState<MatchingPairMock[]>(defaultPairs());
+    const [blocks, setBlocks] = useState<ReorderBlockMock[]>(defaultBlocks());
+
+    // Trắc nghiệm nhiều đáp án đúng giờ suy ra thẳng từ type, không còn là state riêng.
+    const isMulti = type === "MULTIPLE_CHOICE";
+    const isChoiceType = type === "SINGLE_CHOICE" || type === "MULTIPLE_CHOICE";
+    const isTextQuestion = type === "TEXT";
+    const isFillBlank = type === "FILL_BLANK";
+    const isMatching = type === "MATCHING";
+    const isReorder = type === "REORDER";
+    // Chỉ thêm mục "TEXT" vào danh sách khi đang sửa một câu TEXT sẵn có, để ô chọn
+    // hiện đúng loại của nó; mục này bị khoá (isDisabled) và Select cũng bị khoá toàn bộ.
+    const questionTypeItems: SelectItemType[] = isTextQuestion
+        ? [...creatableQuestionTypeItems, { id: "TEXT", label: UI_TEXT.examsSetsEl.questionTypeText, isDisabled: true }]
+        : creatableQuestionTypeItems;
 
     useEffect(() => {
         if (isOpen) {
             if (question) {
                 setPoints(question.points);
                 setExplanation(question.explanation);
+                setType(question.type);
+                setBlanks(question.blanks || []);
+                setPairs(question.pairs || []);
+                setBlocks(question.blocks || []);
 
                 // Ensure exactly 4 options
                 const loadedOpts = [...question.options];
@@ -42,15 +87,14 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                     });
                 }
                 setOptions(loadedOpts);
-
-                // Detect if it is multiple correct answers
-                const correctCount = loadedOpts.filter((o) => o.isCorrect).length;
-                setIsMulti(correctCount > 1);
             } else {
                 setPoints(10);
                 setExplanation("");
                 setOptions(defaultOptions());
-                setIsMulti(false);
+                setType("SINGLE_CHOICE");
+                setBlanks([]);
+                setPairs(defaultPairs());
+                setBlocks(defaultBlocks());
             }
         }
     }, [isOpen, question]);
@@ -74,9 +118,8 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
         setOptions((prev) => prev.map((opt, i) => (i === index ? { ...opt, text: val } : opt)));
     };
 
-    const handleToggleMulti = (multi: boolean) => {
-        setIsMulti(multi);
-        if (!multi) {
+    const handleTypeChange = (nextType: QuestionKind) => {
+        if (nextType === "SINGLE_CHOICE" && type === "MULTIPLE_CHOICE") {
             // Reverting to single choice mode: keep only the first correct option, others set to false
             setOptions((prev) => {
                 let foundCorrect = false;
@@ -92,6 +135,20 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 });
             });
         }
+
+        // defaultPairs()/defaultBlocks() chỉ chạy ở nhánh tạo mới của useEffect phía
+        // trên; nhánh sửa nạp thẳng question.pairs/question.blocks (rỗng nếu câu đang
+        // sửa vốn không phải MATCHING/REORDER). Nếu không điền lại ở đây, staff mở sửa
+        // một câu trắc nghiệm sẵn có rồi đổi loại sang MATCHING/REORDER sẽ thấy danh
+        // sách rỗng hoàn toàn và phải tự bấm "Thêm" đủ số dòng tối thiểu.
+        if (nextType === "MATCHING" && pairs.length === 0) {
+            setPairs(defaultPairs());
+        }
+        if (nextType === "REORDER" && blocks.length === 0) {
+            setBlocks(defaultBlocks());
+        }
+
+        setType(nextType);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -103,10 +160,105 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
             return;
         }
 
-        const correctCount = options.filter((o) => o.isCorrect).length;
-        if (correctCount === 0) {
-            toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.labelAnswersList);
-            return;
+        if (isChoiceType) {
+            const correctOptions = options.filter((o) => o.isCorrect);
+            if (correctOptions.length === 0) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.labelAnswersList);
+                return;
+            }
+
+            const hasEmptyCorrectOption = correctOptions.some((o) => !o.text.trim());
+            if (hasEmptyCorrectOption) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.placeholderAnswer);
+                return;
+            }
+
+            // Bỏ ràng buộc "required" trên cả 4 textarea đáp án (branch này) không có
+            // nghĩa là bỏ luôn sàn tối thiểu — trước đây 4 textarea required buộc staff
+            // điền đủ 4, giờ chỉ còn chặn ở đây: ít nhất 2 đáp án có nội dung (không
+            // rỗng sau trim). Backend (assertQuestionBank) chỉ đòi có ít nhất một đáp án
+            // đúng, không đòi số lượng đáp án tối thiểu, nên câu trắc nghiệm chỉ 1 đáp án
+            // vẫn lọt qua backend nếu FE không tự chặn.
+            const filledOptionsCount = options.filter((o) => o.text.trim()).length;
+            if (filledOptionsCount < MIN_CHOICE_OPTIONS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorChoiceMinOptions);
+                return;
+            }
+        }
+
+        // Bốn luật của assertQuestionBank (backend) cho FILL_BLANK, chặn trước ở FE để
+        // staff không phải đoán lỗi 400: đủ số chỗ trống tối thiểu, mỗi chỗ trống có
+        // đáp án, đề không có marker trùng số, và tập số marker khớp đúng tập
+        // blanks[].index.
+        if (isFillBlank) {
+            if (blanks.length < MIN_FILL_BLANKS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorFillBlankMissing);
+                return;
+            }
+
+            const hasBlankWithoutAnswer = blanks.some((b) => b.acceptedAnswers.every((a) => !a.trim()));
+            if (hasBlankWithoutAnswer) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorBlankNoAnswer);
+                return;
+            }
+
+            const rawMarkerIndexes = parseMarkerIndexesRaw(explanation);
+            const hasDuplicateMarker = rawMarkerIndexes.length !== new Set(rawMarkerIndexes).size;
+            if (hasDuplicateMarker) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerDuplicate);
+                return;
+            }
+
+            // Đối xứng với hasDuplicate(blankIndexes) ở backend (assertQuestionBank).
+            // Trong luồng UI bình thường, effect đồng bộ của FillBlankForm luôn resync
+            // blanks về đúng tập index duy nhất theo marker nên nhánh này không tới được
+            // qua thao tác thường — đây thuần là lớp phòng thủ, phòng khi blanks state bị
+            // sinh ra từ nguồn khác (import Excel, dữ liệu cũ) mà lọt qua effect resync.
+            const rawBlankIndexes = blanks.map((b) => b.index);
+            const hasDuplicateBlankIndex = rawBlankIndexes.length !== new Set(rawBlankIndexes).size;
+            if (hasDuplicateBlankIndex) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerDuplicate);
+                return;
+            }
+
+            const markerIndexSet = new Set(rawMarkerIndexes);
+            const blankIndexSet = new Set(blanks.map((b) => b.index));
+            const sameIndexSet = markerIndexSet.size === blankIndexSet.size && Array.from(markerIndexSet).every((idx) => blankIndexSet.has(idx));
+            if (!sameIndexSet) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMarkerMismatch);
+                return;
+            }
+        }
+
+        // MATCHING: lọc bỏ dòng rỗng cả hai vế trước khi đếm (staff có thể để lại dòng
+        // trống thừa) — nhưng dòng chỉ điền một vế là lỗi thật sự, không được âm thầm bỏ.
+        const nonEmptyPairs = pairs.filter((p) => p.left.trim() || p.right.trim());
+        if (isMatching) {
+            if (nonEmptyPairs.length < MIN_MATCHING_PAIRS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMatchingMinPairs);
+                return;
+            }
+
+            const hasIncompletePair = nonEmptyPairs.some((p) => !p.left.trim() || !p.right.trim());
+            if (hasIncompletePair) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorMatchingPairIncomplete);
+                return;
+            }
+        }
+
+        // REORDER: không có khái niệm "điền một nửa" như MATCHING (mỗi block chỉ có một
+        // ô nội dung) nên không lọc dòng rỗng — mọi dòng đang có phải được điền đủ.
+        if (isReorder) {
+            if (blocks.length < MIN_REORDER_BLOCKS) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorReorderMinBlocks);
+                return;
+            }
+
+            const hasEmptyBlock = blocks.some((b) => !b.content.trim());
+            if (hasEmptyBlock) {
+                toast.error(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.errorReorderBlockEmpty);
+                return;
+            }
         }
 
         const questionText = plainText.length > 120 ? plainText.slice(0, 120) + "..." : plainText;
@@ -120,6 +272,14 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                 ...opt,
                 text: opt.text.trim(),
             })),
+            type,
+            // Chỉ gửi blanks/pairs/blocks đúng khi type khớp — đổi loại rồi lưu không được
+            // mang theo dữ liệu của loại cũ.
+            blanks: isFillBlank
+                ? blanks.map((b) => ({ ...b, acceptedAnswers: b.acceptedAnswers.map((a) => a.trim()).filter((a) => a.length > 0) }))
+                : undefined,
+            pairs: isMatching ? nonEmptyPairs.map((p) => ({ ...p, left: p.left.trim(), right: p.right.trim() })) : undefined,
+            blocks: isReorder ? blocks.map((b) => ({ ...b, content: b.content.trim() })) : undefined,
         };
 
         onSave(newQuestion);
@@ -156,109 +316,67 @@ export function QuestionModal({ isOpen, onClose, onSave, question }: QuestionMod
                     {/* Form Body */}
                     <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
                         <div className="custom-scrollbar flex flex-1 flex-col gap-5 overflow-y-auto p-6">
-                            {/* Points Input Row */}
-                            <div className="flex max-w-[200px] flex-col gap-1.5">
-                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelPoints}</label>
-                                <input
-                                    type="number"
-                                    value={points}
-                                    onChange={(e) => setPoints(Number(e.target.value))}
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13.5px] font-medium text-slate-800 focus:border-wine focus:ring-1 focus:ring-wine focus:outline-none"
-                                    required
-                                    min={1}
-                                />
-                            </div>
+                            {/* Question Type + Points Row */}
+                            <div className="flex flex-wrap gap-4">
+                                <div className="flex max-w-[280px] flex-1 flex-col gap-1.5">
+                                    <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelQuestionType}</label>
+                                    <Select
+                                        aria-label={UI_TEXT.examsSetsEl.labelQuestionType}
+                                        selectedKey={type}
+                                        onSelectionChange={(key) => key && handleTypeChange(key as QuestionKind)}
+                                        items={questionTypeItems}
+                                        size="md"
+                                        isClearable={false}
+                                        isDisabled={isTextQuestion}
+                                    >
+                                        {(item) => <Select.Item id={item.id} label={item.label} isDisabled={item.isDisabled} />}
+                                    </Select>
+                                </div>
 
-                            {/* Rich Editor Description */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelQuestionDesc}</label>
-                                <TiptapEditor value={explanation} onChange={setExplanation} placeholder={UI_TEXT.examsSetsEl.placeholderQuestionDesc} />
-                            </div>
-
-                            {/* Answers List Section */}
-                            <div className="flex flex-col gap-2.5">
-                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelAnswersList}</label>
-
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    {options.map((opt, index) => (
-                                        <div
-                                            key={opt.id}
-                                            className={cx(
-                                                "relative flex cursor-pointer flex-col gap-3.5 rounded-2xl border p-4.5 transition duration-150 focus-within:ring-1",
-                                                opt.isCorrect
-                                                    ? "border-emerald-500 bg-emerald-50/20 shadow-xs shadow-emerald-50 focus-within:border-emerald-500 focus-within:ring-emerald-500"
-                                                    : "border-slate-200 bg-white focus-within:border-wine focus-within:ring-wine hover:border-slate-800",
-                                            )}
-                                            onClick={() => handleSelectCorrect(index)}
-                                        >
-                                            {/* Choice Card Header */}
-                                            <div className="pointer-events-none flex items-center justify-between select-none">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="relative flex items-center justify-center">
-                                                        {opt.isCorrect ? (
-                                                            <div
-                                                                className={cx(
-                                                                    "flex size-5 items-center justify-center bg-emerald-500 text-white",
-                                                                    isMulti ? "rounded-md" : "rounded-full",
-                                                                )}
-                                                            >
-                                                                <Check className="size-3.5 stroke-[3] text-white" />
-                                                            </div>
-                                                        ) : isMulti ? (
-                                                            <div className="size-5 rounded-md border-2 border-slate-300 bg-white" />
-                                                        ) : (
-                                                            <Circle className="size-5 text-slate-400" />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <span className={cx("text-xs font-bold", opt.isCorrect ? "text-emerald-700" : "text-slate-400")}>
-                                                    {opt.isCorrect ? UI_TEXT.examsSetsEl.labelCorrect : UI_TEXT.examsSetsEl.labelIncorrect}
-                                                </span>
-                                            </div>
-
-                                            {/* Choice Card Input */}
-                                            <textarea
-                                                rows={2}
-                                                value={opt.text}
-                                                onChange={(e) => handleOptionTextChange(index, e.target.value)}
-                                                onClick={(e) => e.stopPropagation()} // Avoid triggering correct-selection click when typing
-                                                placeholder={UI_TEXT.examsSetsEl.placeholderAnswer}
-                                                className="w-full resize-none border-none bg-transparent p-0 text-[13px] leading-relaxed font-semibold text-slate-700 placeholder-slate-400 focus:outline-none"
-                                                required
-                                            />
-                                        </div>
-                                    ))}
+                                <div className="flex max-w-[200px] flex-col gap-1.5">
+                                    <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelPoints}</label>
+                                    <input
+                                        type="number"
+                                        value={points}
+                                        onChange={(e) => setPoints(Number(e.target.value))}
+                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13.5px] font-medium text-slate-800 focus:border-wine focus:ring-1 focus:ring-wine focus:outline-none"
+                                        required
+                                        min={1}
+                                    />
                                 </div>
                             </div>
+
+                            {/* Rich Editor Description: dùng cho mọi loại TRỪ FILL_BLANK. Câu điền từ
+                                cần <textarea> thường (selectionStart) để chèn marker {{n}} đúng vị trí
+                                con trỏ — xem comment giải thích đầy đủ trong fill-blank-form.tsx. */}
+                            {isFillBlank ? (
+                                <FillBlankForm content={explanation} onContentChange={setExplanation} blanks={blanks} onBlanksChange={setBlanks} />
+                            ) : (
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelQuestionDesc}</label>
+                                    <TiptapEditor value={explanation} onChange={setExplanation} placeholder={UI_TEXT.examsSetsEl.placeholderQuestionDesc} />
+                                </div>
+                            )}
+
+                            {/* Answers List Section: mỗi dạng câu hỏi có form con riêng, chỉ một
+                                trong số này được render tại một thời điểm theo `type`. */}
+                            {isChoiceType && (
+                                <ChoiceOptionsForm
+                                    options={options}
+                                    isMulti={isMulti}
+                                    onSelectCorrect={handleSelectCorrect}
+                                    onOptionTextChange={handleOptionTextChange}
+                                />
+                            )}
+
+                            {isMatching && <MatchingPairsForm pairs={pairs} onPairsChange={setPairs} />}
+
+                            {isReorder && <ReorderBlocksForm blocks={blocks} onBlocksChange={setBlocks} />}
                         </div>
 
                         {/* Footer Controls & Actions */}
-                        <div className="flex shrink-0 items-center justify-between border-t border-slate-100 bg-slate-50/20 px-6 py-4.5">
-                            {/* Toggle switcher (Bottom Left) */}
-                            <div className="flex items-center rounded-xl border border-slate-200/50 bg-slate-100/80 p-1">
-                                <button
-                                    type="button"
-                                    onClick={() => handleToggleMulti(false)}
-                                    className={cx(
-                                        "rounded-lg px-4 py-2 text-xs font-bold whitespace-nowrap transition duration-150",
-                                        !isMulti ? "bg-slate-700 text-white shadow-sm" : "text-slate-500 hover:text-slate-800",
-                                    )}
-                                >
-                                    {UI_TEXT.examsSetsEl.btnSingleCorrect}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => handleToggleMulti(true)}
-                                    className={cx(
-                                        "rounded-lg px-4 py-2 text-xs font-bold whitespace-nowrap transition duration-150",
-                                        isMulti ? "bg-slate-700 text-white shadow-sm" : "text-slate-500 hover:text-slate-800",
-                                    )}
-                                >
-                                    {UI_TEXT.examsSetsEl.btnMultiCorrect}
-                                </button>
-                            </div>
-
-                            {/* Cancel / Save actions (Bottom Right) */}
+                        <div className="flex shrink-0 items-center justify-end border-t border-slate-100 bg-slate-50/20 px-6 py-4.5">
+                            {/* Cancel / Save actions */}
                             <div className="flex items-center gap-3">
                                 <button
                                     type="button"
