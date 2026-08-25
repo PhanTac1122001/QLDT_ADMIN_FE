@@ -2008,6 +2008,8 @@ export const UI_TEXT = {
         labelDesc: "Mô tả bộ đề",
         placeholderDesc: "Nhập đoạn mô tả ngắn về bộ đề...",
         labelPassThreshold: "Ngưỡng điểm đạt (Pass %)",
+        labelMaxAttempts: "Số lần làm tối đa",
+        placeholderMaxAttempts: "Để trống = không giới hạn",
         labelCourseIdOptional: "ID Khóa học (Không bắt buộc)",
         placeholderCourseId: "Nhập ID khóa học...",
         submitting: "Đang xử lý...",

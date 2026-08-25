@@ -1,4 +1,6 @@
 export const DEFAULT_PASS_THRESHOLD = 80;
+export const DEFAULT_MAX_ATTEMPTS = 3;
+export const MIN_MAX_ATTEMPTS = 1;
 export const MAX_TOTAL_POINTS = 100;
 export const DEFAULT_QUESTION_POINTS = 10;
 export const CREATE_NEW_QUIZ_ACTION = "CREATE_NEW_QUIZ";

@@ -47,6 +47,7 @@ export interface QuizBackendEntity {
     title: string;
     description?: string;
     passThreshold: number;
+    maxAttempts?: number | null;
     courseId?: string;
     questions: Array<{
         _id?: string;
@@ -91,6 +92,7 @@ export interface CreateQuizPayload {
     title: string;
     description?: string;
     passThreshold?: number;
+    maxAttempts?: number | null;
     courseId?: string;
     questions: QuizQuestionDto[];
 }
@@ -112,6 +114,7 @@ export interface UpdateQuizPayload {
     title?: string;
     description?: string;
     passThreshold?: number;
+    maxAttempts?: number | null;
     courseId?: string;
     questions?: QuizQuestionDto[];
 }
@@ -192,6 +195,7 @@ export function mapBackendQuizToExamSet(quiz: QuizBackendEntity): ExamSetMock {
         name: quiz.title,
         description: quiz.description,
         passThreshold: quiz.passThreshold,
+        maxAttempts: quiz.maxAttempts,
         courseId: quiz.courseId,
         questionCount: questions.length,
         createdAt: quiz.createdAt ? new Date(quiz.createdAt).toLocaleDateString("vi-VN") : new Date().toLocaleDateString("vi-VN"),

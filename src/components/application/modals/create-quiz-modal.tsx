@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, HelpCircle, Trash2, Upload, X } from "lucide-react";
 import { Heading } from "react-aria-components";
 import { CustomModal, Dialog } from "@/components/ui/custom-modal";
-import { DEFAULT_PASS_THRESHOLD, QUIZ_IMPORT_ACCEPT } from "@/constants/quiz.constants";
+import { DEFAULT_MAX_ATTEMPTS, DEFAULT_PASS_THRESHOLD, MIN_MAX_ATTEMPTS, QUIZ_IMPORT_ACCEPT } from "@/constants/quiz.constants";
 import { UI_TEXT } from "@/constants/ui-text.constants";
 import { createQuiz, downloadQuizExcelTemplate, importQuizExcel, updateQuiz } from "@/services/quiz.service";
 import { toast } from "@/services/toast.service";
@@ -15,6 +15,7 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [passThreshold, setPassThreshold] = useState<number>(DEFAULT_PASS_THRESHOLD);
+    const [maxAttempts, setMaxAttempts] = useState<string>(String(DEFAULT_MAX_ATTEMPTS));
     const [courseId, setCourseId] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [importedQuestions, setImportedQuestions] = useState<QuizQuestionDto[]>([]);
@@ -33,11 +34,13 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
                 setTitle(name || "");
                 setDescription(initialData.description || "");
                 setPassThreshold(initialData.passThreshold || DEFAULT_PASS_THRESHOLD);
+                setMaxAttempts(initialData.maxAttempts == null ? "" : String(initialData.maxAttempts));
                 setCourseId(initialData.courseId || "");
             } else {
                 setTitle("");
                 setDescription("");
                 setPassThreshold(DEFAULT_PASS_THRESHOLD);
+                setMaxAttempts(String(DEFAULT_MAX_ATTEMPTS));
                 setCourseId("");
             }
         }
@@ -97,11 +100,13 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
 
         try {
             setIsSubmitting(true);
+            const parsedMaxAttempts = maxAttempts.trim() === "" ? null : Number(maxAttempts);
             if (initialData) {
                 const updated = await updateQuiz(initialData.id, {
                     title: title.trim(),
                     description: description.trim() || undefined,
                     passThreshold: Number(passThreshold) || DEFAULT_PASS_THRESHOLD,
+                    maxAttempts: parsedMaxAttempts,
                     courseId: courseId.trim() || undefined,
                 });
                 toast.success(UI_TEXT.examsSetsEl.title, UI_TEXT.examsSetsEl.toastQuestionUpdated);
@@ -111,6 +116,7 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
                     title: title.trim(),
                     description: description.trim() || undefined,
                     passThreshold: Number(passThreshold) || DEFAULT_PASS_THRESHOLD,
+                    maxAttempts: parsedMaxAttempts,
                     courseId: courseId.trim() || undefined,
                     questions: importedQuestions,
                 });
@@ -181,7 +187,7 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                             {/* Pass Threshold */}
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelPassThreshold}</label>
@@ -191,6 +197,19 @@ export function CreateQuizModal({ isOpen, onClose, onSuccess, initialData }: Cre
                                     onChange={(e) => setPassThreshold(Number(e.target.value))}
                                     min={0}
                                     max={100}
+                                    className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13.5px] font-medium text-slate-800 focus:border-wine focus:ring-1 focus:ring-wine focus:outline-none"
+                                />
+                            </div>
+
+                            {/* Max Attempts */}
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[12.5px] font-bold text-slate-700">{UI_TEXT.examsSetsEl.labelMaxAttempts}</label>
+                                <input
+                                    type="number"
+                                    value={maxAttempts}
+                                    onChange={(e) => setMaxAttempts(e.target.value)}
+                                    min={MIN_MAX_ATTEMPTS}
+                                    placeholder={UI_TEXT.examsSetsEl.placeholderMaxAttempts}
                                     className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13.5px] font-medium text-slate-800 focus:border-wine focus:ring-1 focus:ring-wine focus:outline-none"
                                 />
                             </div>

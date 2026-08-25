@@ -70,6 +70,7 @@ export interface ExamSetMock {
     name: string;
     description?: string;
     passThreshold?: number;
+    maxAttempts?: number | null;
     courseId?: string;
     questionCount: number;
     createdAt: string;
