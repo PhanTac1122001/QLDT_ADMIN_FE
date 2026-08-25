@@ -49,6 +49,7 @@ Mọi thay đổi dưới đây phải bảo toàn round-trip này.
 export type QuestionKind =
     | "SINGLE_CHOICE"
     | "MULTIPLE_CHOICE"
+    | "TEXT" // chỉ để round-trip dữ liệu cũ / Excel import — không tạo mới được, xem dưới
     | "FILL_BLANK"
     | "MATCHING"
     | "REORDER";
